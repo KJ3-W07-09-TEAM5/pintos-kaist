@@ -198,9 +198,8 @@ lock_acquire (struct lock *lock) {
       // nested donation of priority
       struct lock *loop_lock = lock;
       while (loop_lock) {
-         if (loop_lock->holder->priority < cur->priority) {
+         if (loop_lock->holder->priority < cur->priority)
             loop_lock->holder->priority = cur->priority;
-         }
          if (loop_lock->holder->waiting_lock == NULL)
             break;
          loop_lock = loop_lock->holder->waiting_lock;
