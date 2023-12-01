@@ -27,11 +27,7 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
-#define NICE_MIN -20
-#define NICE_DEFAULT 0
-#define NICE_MAX 20
-#define RECENT_CPU_DEFAULT 0
-#define LOAD_AVG_DEFAULT 0
+
 
 /* A kernel thread or user process.
  *
@@ -113,8 +109,8 @@ struct thread {
 	int recent_cpu;
 
 #ifdef USERPROG
-			/* Owned by userprog/process.c. */
-			uint64_t *pml4; /* Page map level 4 */
+	/* Owned by userprog/process.c. */
+	uint64_t *pml4; /* Page map level 4 */
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
@@ -154,10 +150,17 @@ void thread_yield (void);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
+/* MLFQS */
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void mlfqs_priority (struct thread *t);
+void mlfqs_recent_cpu (struct thread *t);
+void mlfqs_load_avg (void);
+void mlfqs_increment (void);
+void mlfqs_recalc (void);
 
 void do_iret (struct intr_frame *tf);
 

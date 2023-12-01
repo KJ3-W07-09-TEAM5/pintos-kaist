@@ -13,6 +13,7 @@
 #include "intrinsic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include threads/fixed_point.h
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -56,7 +57,15 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+
+
 int load_avg;
+#define NICE_MIN -20
+#define NICE_DEFAULT 0
+#define NICE_MAX 20
+#define RECENT_CPU_DEFAULT 0
+#define LOAD_AVG_DEFAULT 0
+
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -130,6 +139,7 @@ thread_start (void) {
 	struct semaphore idle_started;
 	sema_init (&idle_started, 0);
 	thread_create ("idle", PRI_MIN, idle, &idle_started);
+	load_avg = LOAD_AVG_DEFAULT;
 
 	/* Start preemptive thread scheduling. */
 	intr_enable ();
@@ -406,6 +416,48 @@ thread_get_recent_cpu (void) {
 	return 0;
 }
 
+// recent_cpu와 nice값을 이용하여 priority를 계산
+void mlfqs_priority (struct thread *t) {
+	if (t != idle_thread) {
+		int div_cpu = fp_to_int(div_mixed(t->recent_cpu, 4));
+		int mult_nice = t->nice * 2;
+		t->priority = PRI_MAX - div_cpu - mult_nice;
+	}
+}	
+
+void mlfqs_recent_cpu (struct thread *t) {
+	if (t != idle_thread) {
+		int mult_load = mult_mixed(thread_get_load_avg, 2);
+		int mult_load_add = add_mixed(mult_load, 1);
+		int temp = mult_fp(div_fp(mult_load, mult_load_add), t->recent_cpu);
+		t->recent_cpu = add_mixed(temp, t->nice);
+	}
+}
+
+
+void mlfqs_load_avg (void) {
+	int mult_load = mult_fp((59/60), load_avg);
+	int ready_threads = list_size(&ready_list);
+	if (thread_current() != idle_thread) {
+    	ready_threads++;
+	}
+	int mult_ready = mult_mixed((1/60), ready_threads);
+	load_avg = mult_load + mult_ready;
+	if (load_avg < 0 ) {
+		return load_avg = LOAD_AVG_DEFAULT;
+	}
+}
+
+void mlfqs_increment (void) {
+	if (thread_current != idle_thread) {
+		thread_current()->recent_cpu = add_mixed(thread_current()->recent_cpu, 1);
+	}
+}
+
+void mlfqs_recalc (void) {
+	
+}
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -470,6 +522,10 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 	list_init(&t->my_locks);
+
+	/* MLFQS*/
+	t->nice = NICE_DEFAULT;
+	t->recent_cpu = RECENT_CPU_DEFAULT;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
