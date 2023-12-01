@@ -194,15 +194,16 @@ lock_acquire (struct lock *lock) {
    if (lock->holder != NULL) {
       // put signal that this thread is waiting for the lock
       cur->waiting_lock = lock;
-
-      // nested donation of priority
-      struct lock *loop_lock = lock;
-      while (loop_lock) {
-         if (loop_lock->holder->priority < cur->priority)
-            loop_lock->holder->priority = cur->priority;
-         if (loop_lock->holder->waiting_lock == NULL)
-            break;
-         loop_lock = loop_lock->holder->waiting_lock;
+      if (thread_mlfqs) {
+         // nested donation of priority
+         struct lock *loop_lock = lock;
+         while (loop_lock) {
+            if (loop_lock->holder->priority < cur->priority)
+               loop_lock->holder->priority = cur->priority;
+            if (loop_lock->holder->waiting_lock == NULL)
+               break;
+            loop_lock = loop_lock->holder->waiting_lock;
+         }
       }
    }
 
@@ -242,26 +243,28 @@ lock_release (struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
    lock->holder = NULL;
-   list_remove(&lock->elem);
+   if (thread_mlfqs) {
+      list_remove(&lock->elem);
 
-   struct thread *cur = thread_current();
-   // if not donated, it should be original priority
-   int new_priority = cur->original_priority;
-   if (!list_empty(&cur->my_locks)) {
-      struct list_elem *e;
-      for (e = list_begin(&cur->my_locks); e != list_end(&cur->my_locks); e = list_next(e)) {
-         struct lock *lock = list_entry(e, struct lock, elem);
-         struct list *waiters = &(lock->semaphore.waiters);
-         if (!list_empty(waiters)) {
-            struct thread *highest = list_entry(list_front(waiters), struct thread, elem);
-            // if donated, it should be highest priority of waiting threads
-            if (new_priority < highest->priority)
-               new_priority = highest->priority;
+      struct thread *cur = thread_current();
+      // if not donated, it should be original priority
+      int new_priority = cur->original_priority;
+      if (!list_empty(&cur->my_locks)) {
+         struct list_elem *e;
+         for (e = list_begin(&cur->my_locks); e != list_end(&cur->my_locks); e = list_next(e)) {
+            struct lock *lock = list_entry(e, struct lock, elem);
+            struct list *waiters = &(lock->semaphore.waiters);
+            if (!list_empty(waiters)) {
+               struct thread *highest = list_entry(list_front(waiters), struct thread, elem);
+               // if donated, it should be highest priority of waiting threads
+               if (new_priority < highest->priority)
+                  new_priority = highest->priority;
+            }
          }
       }
+      cur->priority = new_priority;
+      cur->waiting_lock = NULL;
    }
-   cur->priority = new_priority;
-   cur->waiting_lock = NULL;
    sema_up (&lock->semaphore);
 }
 
