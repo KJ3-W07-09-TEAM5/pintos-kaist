@@ -446,7 +446,7 @@ int thread_get_recent_cpu(void)
 
 	intr_set_level(old_level); // 인터럽트 복원
 
-	return (recent_cpu_times_100); // 결과 반환
+	return recent_cpu_times_100; // 결과 반환
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -728,11 +728,10 @@ void mlfqs_recent_cpu(struct thread *t)
 {
 	if (t != idle_thread)
 	{
-		// 고정소수점 연산을 사용하여 recent_cpu 계산
-		int load_avg_twice = mult_mixed(load_avg, 2); // load_avg * 2
-		int coefficient = div_fp(load_avg_twice, add_mixed(load_avg_twice, 1));
-		int recent_cpu_contribution = mult_fp(coefficient, t->recent_cpu);
-		t->recent_cpu = add_mixed(recent_cpu_contribution, t->nice);
+		int mult_load = mult_mixed(load_avg, 2);
+		int mult_load_add = add_mixed(mult_load, 1);
+		int temp = mult_fp(div_fp(mult_load, mult_load_add), t->recent_cpu);
+		t->recent_cpu = add_mixed(temp, t->nice);
 	}
 }
 
