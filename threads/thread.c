@@ -785,4 +785,14 @@ void mlfqs_recalc(void)
 			mlfqs_priority(t);	 // priority 재계산
 		}
 	}
+
+	for (e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e))
+	{
+		struct thread *t = list_entry(e, struct thread, elem);
+		if (t != idle_thread)
+		{
+			mlfqs_recent_cpu(t); // recent_cpu 재계산
+			mlfqs_priority(t);	 // priority 재계산
+		}
+	}
 }
