@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "fixed_point.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -651,4 +652,25 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+/* mlfqs */
+void mlfqs_priority (struct thread *t) {
+	
+}
+
+void mlfqs_recent_cpu (struct thread *t) {
+
+}
+
+void mlfqs_load_avg (void) {
+
+}
+
+void mlfqs_increment (void) {
+
+}
+
+void mlfqs_recalc (void) {
+	
 }
