@@ -130,6 +130,7 @@ thread_start (void) {
 	struct semaphore idle_started;
 	sema_init (&idle_started, 0);
 	thread_create ("idle", PRI_MIN, idle, &idle_started);
+	load_avg = LOAD_AVG_DEFAULT;
 
 	/* Start preemptive thread scheduling. */
 	intr_enable ();
@@ -469,6 +470,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->original_priority = t->priority = priority;
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+	t->nice = NICE_DEFAULT;
+	t->recent_cpu = RECENT_CPU_DEFAULT;
 	list_init(&t->my_locks);
 }
 

@@ -1,5 +1,7 @@
 #include <stdint.h>
 #define F (1 << 14)
+#define INT_MAX ((1 << 31) - 1)
+#define INT_MIN (-(1 << 31))
 
 // 헤더 파일에 함수를 구현하므로, thread.c 이외에서 include할 경우 에러가 발생할 수 있습니다.
 
