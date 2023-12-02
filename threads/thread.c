@@ -25,6 +25,10 @@
    Do not modify this value. */
 #define THREAD_BASIC 0xd42df210
 
+/* [ sleep list에 있는 알람시간 중 가장 이른 알람시간 ]
+   가장 이른 알람시간 ≤ 현재 ticks 이면, 깨울 스레드가 없다는 의미이다. */
+extern int64_t MIN_alarm_time;
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -152,20 +156,7 @@ thread_start (void) {
    Thus, this function runs in an external interrupt context. */
 void
 thread_tick (void) {
-	/* sleep_list에 awake_up_ticks가 만료된 스레드가 있는지 검색 */
 	struct thread *t = thread_current();
-	int64_t current_ticks = timer_ticks();
-
-	struct list_elem *e = list_begin(&sleep_list);
-	while (e != list_end(&sleep_list)) {
-		struct thread *t = list_entry(e, struct thread, elem);
-		if (t->wake_up_ticks <= current_ticks) {
-			e = list_remove(e); // 스레드를 목록에서 제거
-			thread_unblock(t);	// 스레드 깨우기
-		} else {
-			e = list_next(e);
-		}
-	}
 
 	/* Update statistics. */
 	if (t == idle_thread)
@@ -235,8 +226,7 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
-	if (thread_get_priority() < priority)
-		thread_yield();
+	test_max_priority();
 
 	return tid;
 }
@@ -255,6 +245,8 @@ thread_block (void) {
 	schedule ();
 }
 
+
+
 bool
 priority_more (const struct list_elem *a_, const struct list_elem *b_,
             void *aux UNUSED) { 
@@ -264,6 +256,16 @@ priority_more (const struct list_elem *a_, const struct list_elem *b_,
 	return a->priority > b->priority;
 }
 
+void 
+test_max_priority(void) {
+	if (!list_empty(&ready_list)) {
+		struct thread *top_pri = list_begin(&ready_list);
+		if (priority_more(top_pri, &thread_current()->elem, NULL))
+		{
+			thread_yield();
+		}
+	}
+}
 
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
@@ -284,6 +286,30 @@ thread_unblock (struct thread *t) {
   	list_insert_ordered(&ready_list, &t->elem, priority_more, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
+}
+
+void thread_awake(int64_t ticks)
+{
+	struct thread *t;
+	struct list_elem *now = list_begin(&sleep_list);
+	int64_t new_MIN = INT64_MAX;
+
+
+	while (now != list_tail(&sleep_list)) {
+		t = list_entry(now, struct thread, elem);
+
+		if (t->wake_up_ticks <= ticks) {
+			now = list_remove(&t->elem);
+			thread_unblock(t);
+		}
+		else {
+			now = list_next(now);
+			if (new_MIN > t->wake_up_ticks) {
+				new_MIN = t->wake_up_ticks;
+			}
+		}
+	}
+	MIN_alarm_time = new_MIN;
 }
 
 /* Returns the name of the running thread. */
@@ -351,7 +377,7 @@ thread_yield (void) {
 
 /* 현재 실행 중인 스레드를 대기 상태로 변경하고 대기큐에 삽입합니다. */
 void 
-thread_sleep(int64_t end) {
+thread_sleep(int64_t ticks) {
 	struct thread *curr = thread_current();
 	enum intr_level old_level;
 
@@ -359,10 +385,60 @@ thread_sleep(int64_t end) {
 
 	old_level = intr_disable();
 	if (curr != idle_thread)
-    	list_insert_ordered(&sleep_list, &curr->elem, priority_more, NULL);
+		curr->wake_up_ticks = ticks;
+		if (MIN_alarm_time > ticks) {
+			MIN_alarm_time = ticks;
+		}
+    	list_push_back(&sleep_list, &curr->elem);
+		
 	do_schedule(THREAD_BLOCKED);
 	intr_set_level(old_level);
 }
+
+void 
+refresh_priority (void) {
+	thread_current()->priority = thread_current()->original_priority;
+
+	if (!list_empty(&thread_current()->donations)) {
+		struct thread *front_thread = list_entry (list_begin(&thread_current()->donations), struct thread, donations_elem);
+		if (thread_current()->priority < front_thread->priority) {
+			thread_current()->priority = front_thread->priority;
+		}
+	}
+}
+
+void 
+donate_priority(void) {
+    struct thread *curr = thread_current(); 
+    struct thread *holder;					
+
+    int priority = curr->priority;
+
+    for (int i = 0; i < 8; i++) {
+        if (curr->waiting_lock == NULL) {
+            return;
+		}
+        holder = curr->waiting_lock->holder;
+        holder->priority = priority;
+        curr = holder;
+    }
+}
+void
+remove_with_lock (struct lock *lock) {
+   struct list_elem *curr_donation_elem = list_begin(&thread_current()->donations);
+
+   while (curr_donation_elem != list_tail(&thread_current()->donations)) {
+      struct thread *curr_donation_thread = list_entry(curr_donation_elem, struct thread, donations_elem);
+      
+      if (curr_donation_thread->waiting_lock == lock) {
+         curr_donation_elem = list_remove(curr_donation_elem);
+      }
+      else {
+         curr_donation_elem = list_next(curr_donation_elem);
+      }
+   }
+}
+
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
@@ -371,20 +447,11 @@ thread_set_priority (int new_priority) {
 		return;
 	}
 
-	// check donation
-	struct thread *cur = thread_current();
-	if (cur->priority == cur->original_priority) {	// donation non-exists
-		cur->original_priority = cur->priority = new_priority;
-	} else {	// donation exists
-		cur->original_priority = new_priority;
-	}
-	
-	// check if there's any thread to yield
-	if (list_empty(&ready_list))
-		return;
-	struct thread *front = list_entry(list_front(&ready_list), struct thread, elem);
-	if (front->priority > new_priority)
-		thread_yield();
+	thread_current()->original_priority = new_priority;
+	// thread_current()->priority = new_priority;
+
+	refresh_priority();
+	test_max_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -401,8 +468,9 @@ thread_set_nice (int nice UNUSED) {
 
 	old_level = intr_disable();
 	t->nice = nice;
-	mlfqs_recent_cpu(t);
+
 	mlfqs_priority(t);
+	test_max_priority();
 	intr_set_level(old_level);
 }
 
@@ -425,7 +493,7 @@ thread_get_load_avg (void) {
 	enum intr_level old_level;
 	old_level = intr_disable();
 
-	int current_load = fp_to_int(load_avg*100);
+	int current_load = fp_to_int_round(load_avg*100);
 	intr_set_level(old_level);
 	
 	return current_load;
@@ -438,7 +506,7 @@ thread_get_recent_cpu (void) {
 	enum intr_level old_level;
 	old_level = intr_disable();
 
-	int current_cpu = fp_to_int(t->recent_cpu*100);
+	int current_cpu = fp_to_int_round(t->recent_cpu*100);
 	intr_set_level(old_level);
 
 	return current_cpu;
@@ -473,9 +541,6 @@ void mlfqs_load_avg (void) {
 	int b = div_fp(int_to_fp(1), int_to_fp(60));
 	int mult_ready = mult_mixed(b, ready_threads);
 	load_avg = mult_load + mult_ready;
-	if (load_avg < 0 ) {
-		return load_avg = LOAD_AVG_DEFAULT;
-	}
 }
 
 void mlfqs_increment (void) {
@@ -571,10 +636,13 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
-	t->original_priority = t->priority = priority;
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
-	list_init(&t->my_locks);
+
+	/* inversion */
+	t->original_priority = priority;
+	t->waiting_lock = NULL;
+	list_init(&t->donations);
 
 	/* MLFQS*/
 	t->nice = NICE_DEFAULT;
@@ -758,3 +826,4 @@ allocate_tid (void) {
 
 	return tid;
 }
+
