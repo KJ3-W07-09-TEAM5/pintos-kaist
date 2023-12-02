@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <stddef.h>
 #include "threads/interrupt.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -150,6 +151,8 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void thread_sleep(int64_t end);
+void thread_awake (int64_t ticks);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
@@ -160,5 +163,21 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+
+int mlfqs_get_new_recentcpu (struct thread *t);
+void mlfqs_set_recentcpu (struct thread *t, int recent_cpu);
+void mlfqs_set_recentcpus (struct list *threads);
+
+int mlfqs_get_new_loadavg (void);
+int mlfqs_set_loadavg (int new_load_avg);
+
+int mlfqs_get_new_priority (struct thread *t);
+int mlfqs_set_priority (struct thread *t, int priority);
+int mlfqs_set_priorities (struct list *threads);
+
+
+void mlfqs_update_recentcpus_test (void);
+void mlfqs_update_priorities_test (void);
 
 #endif /* threads/thread.h */

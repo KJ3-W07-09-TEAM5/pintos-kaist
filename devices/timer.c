@@ -97,8 +97,8 @@ timer_sleep (int64_t ticks) {
 
 	/* 현재 스레드에 깨어날 틱을 추가하고 sleep처리 */
 	struct thread *current = thread_current();
-	current->wake_up_ticks = start + ticks;
-	thread_sleep();
+	current->wake_up_ticks = end;
+	thread_sleep(end);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -129,7 +129,36 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_tick ();
+	thread_tick();
+
+	struct thread *cur = thread_current();
+	extern struct list *sleep_list;
+	extern struct list *ready_list;
+	extern struct thread *idle_thread;
+	
+	if (thread_mlfqs) {
+		if (cur != idle_thread)
+			cur->recent_cpu = add_mixed(cur->recent_cpu, 1);
+
+		if (ticks % TIMER_FREQ == 0) {
+			mlfqs_set_loadavg(mlfqs_get_new_loadavg());
+			cur->recent_cpu = mlfqs_get_new_recentcpu(cur);
+			// if (ready_list != NULL)
+			// 	mlfqs_set_recentcpus(ready_list);
+			// if (sleep_list != NULL)
+			// 	mlfqs_set_recentcpus(sleep_list);
+			// if (ready_list != NULL)
+			// 	mlfqs_set_priorities(ready_list);
+			// if (sleep_list != NULL)
+			// 	mlfqs_set_priorities(sleep_list);
+			mlfqs_update_recentcpus_test();
+			mlfqs_update_priorities_test();
+		}
+		if (ticks % 4 == 0)
+			cur->priority = mlfqs_get_new_priority(cur);
+	}
+
+	thread_awake(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
