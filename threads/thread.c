@@ -61,15 +61,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
-
-
 int load_avg;
-#define NICE_MIN -20
-#define NICE_DEFAULT 0
-#define NICE_MAX 20
-#define RECENT_CPU_DEFAULT 0
-#define LOAD_AVG_DEFAULT 0
-
 
 static void kernel_thread (thread_func *, void *aux);
 
