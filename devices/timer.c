@@ -131,31 +131,28 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick();
 
+
 	struct thread *cur = thread_current();
 	extern struct list *sleep_list;
 	extern struct list *ready_list;
 	extern struct thread *idle_thread;
-	
+
 	if (thread_mlfqs) {
-		if (cur != idle_thread)
+		if (cur != idle_thread) {
 			cur->recent_cpu = add_mixed(cur->recent_cpu, 1);
+		}
 
 		if (ticks % TIMER_FREQ == 0) {
 			mlfqs_set_loadavg(mlfqs_get_new_loadavg());
 			cur->recent_cpu = mlfqs_get_new_recentcpu(cur);
-			// if (ready_list != NULL)
-			// 	mlfqs_set_recentcpus(ready_list);
-			// if (sleep_list != NULL)
-			// 	mlfqs_set_recentcpus(sleep_list);
-			// if (ready_list != NULL)
-			// 	mlfqs_set_priorities(ready_list);
-			// if (sleep_list != NULL)
-			// 	mlfqs_set_priorities(sleep_list);
-			mlfqs_update_recentcpus_test();
-			mlfqs_update_priorities_test();
+			mlfqs_set_recentcpus(&ready_list);
+			mlfqs_set_recentcpus(&sleep_list);
+			mlfqs_set_priorities(&ready_list);
+			mlfqs_set_priorities(&sleep_list);
 		}
-		if (ticks % 4 == 0)
+		if (ticks % 4 == 0) {
 			cur->priority = mlfqs_get_new_priority(cur);
+		}
 	}
 
 	thread_awake(ticks);

@@ -505,11 +505,9 @@ init_thread (struct thread *t, const char *name, int priority) {
 static struct thread *
 next_thread_to_run (void) {
 	if (list_empty (&ready_list))
-		return idle_thread;
-	else {
-		list_sort(&ready_list, priority_more, NULL);
-		return list_entry (list_pop_front (&ready_list), struct thread, elem);
-	}
+    	return idle_thread;
+	else
+    	return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
 /* Use iretq to launch the thread */
@@ -716,14 +714,9 @@ mlfqs_get_new_loadavg (void) {
 	const int fp__60_ = int_to_fp(60);
 	const int fp__load_avg_ = load_avg;
 	const int n__ready_threads_ = ready_threads;
-	printf("fp__load_avg_ : %d (%d)\n", fp__load_avg_, fp_to_int_round(fp__load_avg_));
-	printf("n__ready_threads_ : %d\n", n__ready_threads_);
 
 	const int fp__former_ = mult_fp(div_fp(fp__59_, fp__60_), fp__load_avg_);
 	const int fp__latter_ = mult_mixed(div_fp(fp__1_, fp__60_), n__ready_threads_);
-	printf("fp__former_ : %d\n", fp__former_);
-	printf("fp__latter_ : %d\n", fp__latter_);
-	printf("returning : %d (integer : %d)\n", add_fp(fp__former_, fp__latter_), fp_to_int_round(add_fp(fp__former_, fp__latter_)));
 
 	return add_fp(fp__former_, fp__latter_);
 }
@@ -741,44 +734,18 @@ mlfqs_get_new_priority (struct thread *t) {
 	const int fp__recent_cpu_ = t->recent_cpu;
 	const int n__PRI_MAX_ = PRI_MAX;
 	const int n__nice_ = t->nice;
-	return fp_to_int(add_mixed(div_mixed(fp__recent_cpu_, -4), n__PRI_MAX_ - n__nice_ * 2));
-	// int pri_round = priority;
-	// if (priority < PRI_MIN)
-	// 	pri_round = PRI_MIN;
-	// if (priority > PRI_MAX)
-	// 	pri_round = PRI_MAX;
-	// return pri_round;
+	int priority = fp_to_int(add_mixed(div_mixed(fp__recent_cpu_, -4), n__PRI_MAX_ - n__nice_ * 2));
+	if (priority < PRI_MIN)
+		priority = PRI_MIN;
+	if (priority > PRI_MAX)
+		priority = PRI_MAX;
+	return priority;
 }
 
 int
 mlfqs_set_priorities (struct list *threads) {
 	struct list_elem *e;
 	for (e = list_begin(threads); e != list_end(threads); e = list_next(e)) {
-		struct thread *t = list_entry(e, struct thread, elem);
-		t->priority = mlfqs_get_new_priority(t);
-	}
-}
-
-void mlfqs_update_recentcpus_test (void) {
-	struct list_elem *e;
-	for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
-		struct thread *t = list_entry(e, struct thread, elem);
-		t->recent_cpu = mlfqs_get_new_recentcpu(t);
-	}
-	for (e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e)) {
-		struct thread *t = list_entry(e, struct thread, elem);
-		t->recent_cpu = mlfqs_get_new_recentcpu(t);
-	}
-
-}
-
-void mlfqs_update_priorities_test (void) {
-	struct list_elem *e;
-	for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)) {
-		struct thread *t = list_entry(e, struct thread, elem);
-		t->priority = mlfqs_get_new_priority(t);
-	}
-	for (e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e)) {
 		struct thread *t = list_entry(e, struct thread, elem);
 		t->priority = mlfqs_get_new_priority(t);
 	}

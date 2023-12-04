@@ -176,8 +176,4 @@ int mlfqs_get_new_priority (struct thread *t);
 int mlfqs_set_priority (struct thread *t, int priority);
 int mlfqs_set_priorities (struct list *threads);
 
-
-void mlfqs_update_recentcpus_test (void);
-void mlfqs_update_priorities_test (void);
-
 #endif /* threads/thread.h */
