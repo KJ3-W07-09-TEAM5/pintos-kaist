@@ -116,7 +116,7 @@ void close (int fd) {
 
 /* The main system call interface */
 void
-syscall_handler (struct intr_frame *f UNUSED) {
+syscall_handler (struct intr_frame *f) {
 	switch (f->R.rax) {
 		case SYS_HALT:
 			halt();			// pintos를 종료시키는 시스템 콜
