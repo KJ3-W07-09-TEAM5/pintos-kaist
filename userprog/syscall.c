@@ -106,7 +106,28 @@ int filesize (int fd) {
 }
 
 int read (int fd, void *buffer, unsigned length) {
-	return 0;
+	check_address(buffer);
+
+	unsigned int bytesRead = 0;
+
+	if (fd == 0) { 
+		for (unsigned int i = 0; i < length; i++) {
+			char c = input_getc();
+			((char *)buffer)[i] = c;
+			bytesRead++;
+
+			if (c == '\n') break;
+		}
+	} else {
+		struct file *f = fd_to_file(fd); // 이거 구현해야 됨
+		if (f == NULL) {
+			return -1; 
+		}
+
+		bytesRead = file_read(f, buffer, length);
+	}
+
+	return bytesRead;
 }
 
 int write (int fd, const void *buffer, unsigned length) {
