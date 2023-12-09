@@ -15,6 +15,7 @@ typedef int pid_t;
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+struct file *get_file_from_fd_table (int fd);
 
 /* System call.
  *
@@ -138,18 +139,20 @@ int filesize (int fd) {
 int read (int fd, void *buffer, unsigned length) {
 	check_address(buffer);
 
-	unsigned int bytesRead = 0;
+	int bytesRead = 0;
 
 	if (fd == 0) { 
-		for (unsigned int i = 0; i < length; i++) {
+		for (int i = 0; i < length; i++) {
 			char c = input_getc();
 			((char *)buffer)[i] = c;
 			bytesRead++;
 
 			if (c == '\n') break;
 		}
+	} else if (fd == 1) {
+		return -1;
 	} else {
-		struct file *f = fd_to_file(fd); // 이거 구현해야 됨
+		struct file *f = get_file_from_fd_table(fd);
 		if (f == NULL) {
 			return -1; 
 		}
