@@ -41,8 +41,6 @@ syscall_init (void) {
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 	
-	struct lock filesys_lock;
-	lock_init(&filesys_lock);
 }
 
 void check_address(void *addr) {

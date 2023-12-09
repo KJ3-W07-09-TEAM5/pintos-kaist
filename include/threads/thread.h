@@ -122,8 +122,8 @@ struct thread {
 	struct list child_list;
 	struct list_elem child_elem;
 	struct semaphore wait_sema;
-	struct semaphore load_sema;
-	struct semaphore destroy_sema;
+	// struct semaphore load_sema;
+	// struct semaphore destroy_sema;
 	int exit_status;
 
 #ifdef USERPROG

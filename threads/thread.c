@@ -219,7 +219,13 @@ thread_create (const char *name, int priority,
 	list_push_back(&thread_current()->child_list, &t->child_elem);
 	
 	/* filesys */
-	// fd_table 초기화 필요
+	t->fd_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->fd_table == NULL) {
+		return TID_ERROR;
+	}
+	t->fd_idx = 2;
+	t->fd_table[0] = 1;
+	t->fd_table[1] = 2;
 
 	/* Add to run queue. */
 	thread_unblock (t);
@@ -655,13 +661,16 @@ init_thread (struct thread *t, const char *name, int priority) {
 	// sema_init(&t->destroy_sema, 0);
 
 	/* filesys */
-	t->fd_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
-	if (t->fd_table == NULL) {
-		return TID_ERROR;
-	}
-	t->fd_idx = 2;
-	t->fd_table[0] = 1;
-	t->fd_table[1] = 2;
+	// 작동하지 않는 코드, 먼저 수정하셔도 됩니다
+	// t->fd_table = palloc_get_multiple(PAL_ZERO, 2);
+	// if (t->fd_table == NULL) {
+	// 	palloc_free_page(t);
+	// 	return TID_ERROR;
+	// }
+	// // t->fd_table[0] = 0;
+	// // t->fd_table[1] = 1;
+	// t->next_fd = 2;
+	// t->fd_table -= 2;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

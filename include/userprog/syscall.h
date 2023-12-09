@@ -1,10 +1,12 @@
 #include "stdbool.h"
+#include "file.h"
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
 typedef int pid_t;
 
 void check_address(void *addr);
+int add_file_to_fd_table (struct file *file);
 void halt(void);
 void exit (int status);
 pid_t fork (const char *thread_name);

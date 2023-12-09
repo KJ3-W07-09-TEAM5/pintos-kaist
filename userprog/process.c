@@ -55,9 +55,8 @@ process_create_initd (const char *file_name) {
 	strtok_r(file_name, " ", &save_ptr);
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
-	if (tid == TID_ERROR) {
+	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
-	}
 	
 	return tid;
 }
@@ -70,6 +69,7 @@ initd (void *f_name) {
 #endif
 
 	process_init ();
+
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
