@@ -3,6 +3,7 @@
 #define USERPROG_SYSCALL_H
 
 typedef int tid_t;
+struct lock filesys_lock;
 
 void check_address(void *addr);
 int add_file_to_fd_table (struct file *file);

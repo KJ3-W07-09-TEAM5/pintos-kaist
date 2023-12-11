@@ -4,6 +4,8 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
+#include "threads/init.h"
 #include "threads/loader.h"
 #include "userprog/gdt.h"
 #include "threads/flags.h"
@@ -14,6 +16,9 @@
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 struct file *get_file_from_fd_table (int fd);
+
+
+struct lock filesys_lock;
 
 /* System call.
  *
@@ -30,6 +35,7 @@ struct file *get_file_from_fd_table (int fd);
 
 void
 syscall_init (void) {
+	// lock_init(&filesys_lock);
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
@@ -39,7 +45,6 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
-	
 }
 
 void check_address(void *addr) {
@@ -127,32 +132,41 @@ int open (const char *file) {
 }
 
 int filesize (int fd) {
-	// return file_length(thread_current()->fd_table[fd]);
-	return 0;
+	struct file *fileobj = get_file_from_fd_table(fd);
+	if (fileobj == NULL) {
+		return -1;
+	}
+	file_length(fileobj);
 }
 
 int read (int fd, void *buffer, unsigned length) {
 	check_address(buffer);
-
-	int bytesRead = 0;
+	check_address(buffer + length -1);
+	unsigned char *buf = buffer;
+	int bytesRead;
 
 	if (fd == 0) { 
-		for (int i = 0; i < length; i++) {
-			char c = input_getc();
-			((char *)buffer)[i] = c;
-			bytesRead++;
+		char key;
+		for (int bytesRead = 0; bytesRead < length; bytesRead++) {
+			key = input_getc();
+			*buf++ = key;
 
-			if (c == '\n') break;
+			if (key == '\0') {
+				break;
+			}
 		}
-	} else if (fd == 1) {
+	} 
+	else if (fd == 1) {
 		return -1;
-	} else {
+	} 
+	else {
 		struct file *f = get_file_from_fd_table(fd);
 		if (f == NULL) {
 			return -1; 
 		}
-
+		// lock_acquire(&filesys_lock);
 		bytesRead = file_read(f, buffer, length);
+		// lock_release(&filesys_lock);
 	}
 
 	return bytesRead;
@@ -168,35 +182,56 @@ struct file *get_file_from_fd_table (int fd) {
 
 int write (int fd, const void *buffer, unsigned length) {
 	check_address(buffer);
+	struct file *f = get_file_from_fd_table(fd);
+	int bytesRead;
 
-	int bytesRead = 0;
+	// lock_acquire(&filesys_lock);
 
 	if (fd == 0) {
+		// lock_release(&filesys_lock);
 		return -1;
-	} else if (fd == 1) {
+	} 
+	else if (fd == 1) {
 		putbuf(buffer, length);
-		return length;
-	} else {
-		struct file *f = get_file_from_fd_table(fd);
+		bytesRead = length;
+	} 
+	else {
 		if (f == NULL) {
+			// lock_release(&filesys_lock);
 			return -1;
 		}
-
 		bytesRead = file_write(f, buffer, length);
 	}
+
+	// lock_release(&filesys_lock);
 	return bytesRead;
 }
 
 void seek (int fd, unsigned position) {
-	return 0;
+	struct file *file = get_file_from_fd_table(fd);
+	check_address(file);
+	if (file == NULL) {
+		return;
+	}
+	file_seek(file, position);
 }
 
 unsigned tell (int fd) {
-	return 0;
+	struct file *file = get_file_from_fd_table(fd);
+	check_address(file);
+	if (file == NULL) {
+		return;
+	}
+	file_tell(fd);
 }
 
 void close (int fd) {
-	return 0;
+	struct file *file = get_file_from_fd_table(fd);
+	check_address(file);
+	if (file == NULL) {
+		return;
+	}
+	thread_current()->fd_table[fd] == NULL;
 }
 
 
