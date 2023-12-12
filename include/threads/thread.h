@@ -119,6 +119,7 @@ struct thread {
 	int recent_cpu;
 	
 	/* process */
+	struct thread *parent;
 	struct list child_list;
 	struct list_elem child_elem;
 	struct semaphore wait_sema;
@@ -142,6 +143,7 @@ struct thread {
 
 	/* filesys */
 	struct file **fd_table;
+	struct lock fd_lock;
 	int fd_idx;
 };
 

@@ -653,10 +653,12 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->recent_cpu = RECENT_CPU_DEFAULT;
 
 	/* process */
+	t->parent = NULL;
 	list_init(&t->child_list);
 	sema_init(&t->wait_sema, 0);
 	sema_init(&t->fork_sema, 0);
 	sema_init(&t->exit_sema, 0);
+	t->exit_status = 0;
 
 	/* filesys */
 	// 작동하지 않는 코드, 먼저 수정하셔도 됩니다
