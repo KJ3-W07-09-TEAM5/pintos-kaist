@@ -4,15 +4,10 @@
 
 typedef int tid_t;
 
-void syscall_init (void);
 void check_address(void *addr);
-
 /* file descriptor */
-// int add_file_to_fd_table (struct file *file);
-struct file *get_file_from_fd_table (int fd);
-int alloc_fd(struct file *file);
-void release_fd(int fd);
-void fd_table_close();
+int add_file_to_fd_table (struct file *file);
+// struct file *get_file_from_fd_table (int fd);
 
 void halt(void);
 void exit (int status);
@@ -29,6 +24,7 @@ void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
 
+void syscall_init (void);
 
 
 #endif /* userprog/syscall.h */

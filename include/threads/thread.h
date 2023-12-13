@@ -36,7 +36,7 @@ typedef int tid_t;
 
 /* system call */
 #define FDT_PAGES 3
-
+#define FDCOUNT_LIMIT FDT_PAGES *(1 << 9)
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -119,7 +119,6 @@ struct thread {
 	int recent_cpu;
 	
 	/* process */
-	struct thread *parent;
 	struct list child_list;
 	struct list_elem child_elem;
 	struct semaphore wait_sema;
@@ -143,8 +142,8 @@ struct thread {
 
 	/* filesys */
 	struct file **fd_table;
-	struct lock fd_lock;
 	int fd_idx;
+	struct file *running;
 };
 
 /* If false (default), use round-robin scheduler.

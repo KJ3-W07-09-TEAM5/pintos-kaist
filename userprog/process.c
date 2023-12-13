@@ -21,14 +21,11 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
-#define MAX_ARGS 128
-#define MAX_FILE 128
 
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
-void fd_table_close();
 
 /* General process initializer for initd and other process. */
 static void
@@ -54,12 +51,11 @@ process_create_initd (const char *file_name) {
 	strlcpy (fn_copy, file_name, PGSIZE);
 
 	char *save_ptr;
-	char *token = strtok_r(file_name, " ", &save_ptr);
+	strtok_r(file_name, " ", &save_ptr);
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR) {
 		palloc_free_page (fn_copy);
-		return TID_ERROR;
 	}
 
 	return tid;
@@ -74,8 +70,9 @@ initd (void *f_name) {
 
 	process_init ();
 
-	if (process_exec (f_name) < 0)
+	if (process_exec (f_name) < 0) {
 		PANIC("Fail to launch initd\n");
+	}
 	NOT_REACHED ();
 }
 
@@ -84,14 +81,22 @@ initd (void *f_name) {
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
-	struct intr_frame *parent_ = &thread_current()->parent_tf;
-	memcpy(parent_, if_, sizeof (struct intr_frame));
-	tid_t tid = thread_create (name, PRI_DEFAULT, __do_fork, thread_current());
+	struct thread *parent = thread_current();
+	memcpy(&parent->parent_tf, if_, sizeof (struct intr_frame));
+	tid_t tid = thread_create (name, PRI_DEFAULT, __do_fork, parent);
 
 	if (tid == TID_ERROR) {
+		return tid;
+	}
+
+	struct thread *child = get_child_thread(tid);
+
+	sema_down(&child->fork_sema);
+
+	if (child->exit_status == TID_ERROR) {
 		return TID_ERROR;
 	}
-	sema_down(&thread_current()->fork_sema);
+
 	return tid;
 }
 
@@ -120,7 +125,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
 	newpage = palloc_get_page (PAL_USER);
-	if (!newpage) {
+	if (newpage == NULL) {
 		return false;
 	}
 
@@ -134,7 +139,6 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	 *    permission. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* 6. TODO: if fail to insert page, do error handling. */
-		palloc_free_page (newpage);
 		return false;
 	}
 	return true;
@@ -151,12 +155,13 @@ __do_fork (void *aux) {
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if = &parent->parent_tf;
+	struct intr_frame *parent_tf = &parent->parent_tf;
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
 	
-	memcpy (&if_, parent_if, sizeof (struct intr_frame));
+	memcpy (&if_, parent_tf, sizeof (struct intr_frame));
+	if_.R.rax = 0;
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -178,29 +183,29 @@ __do_fork (void *aux) {
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	lock_acquire(&parent->fd_lock);
-	for (int i = 2; i < 128; i++) {
-		if (parent->fd_table[i] != 0) {
-			current->fd_table[i] = file_duplicate(parent->fd_table[i]);
-		}
-		else {
-			current->fd_table[i] = 0;
-		}
+	if (parent->fd_idx == FDCOUNT_LIMIT) {
+		goto error;
 	}
-	lock_release(&parent->fd_lock);
 
-	process_init();
-
-	current->parent = parent;
-	sema_up(&parent->fork_sema);
+	for (int i = 0; i < FDCOUNT_LIMIT; i++) {
+		struct file *file = parent->fd_table[i];
+		if (file == NULL) {
+			continue;
+		}
+		if (file > 2) {
+			file = file_duplicate(file);
+		}
+		current->fd_table[i] = file;
+	}
+	current->fd_idx = parent->fd_idx;
+	sema_up(&current->fork_sema);
 
 	/* Finally, switch to the newly created process. */
 	if (succ) {
-		if_.R.rax = 0;
 		do_iret (&if_);
 	}
 error:
-	sema_up(&parent->fork_sema);
+	sema_up(&current->fork_sema);
 	exit(TID_ERROR);
 }
 
@@ -209,7 +214,7 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = (char *)palloc_get_page(PAL_ZERO);
-	strlcpy(file_name, (char *)f_name, strlen(f_name) + 1);
+	strlcpy(file_name, (char *)f_name, strlen((char *)f_name)+1);
 	bool success;
 
 	/* We cannot use the intr_frame in the thread structure.
@@ -232,8 +237,6 @@ process_exec (void *f_name) {
 	/* And then load the binary */
 	success = load (file_name, &_if);
 
-	// sema_up(&thread_current ()->load_sema);
-
 	/* If load failed, quit. */
 	if (!success) {
 		palloc_free_page (file_name);
@@ -244,9 +247,11 @@ process_exec (void *f_name) {
     stacker(argv, argc, &_if);
     _if.R.rdi = argc;
 	_if.R.rsi = _if.rsp + 8;
+
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK-_if.rsp, true);
 	/* project 2: argument passing */
 
+	palloc_free_page(file_name);
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -273,32 +278,29 @@ process_wait (tid_t child_tid) {
 	}
 
 	sema_down (&child->wait_sema);
-	
 	list_remove (&child->child_elem);
-	sema_up (&child->exit_sema);
 	int exit_status = child->exit_status;
+	sema_up (&child->exit_sema);
 	return exit_status;
-	// for (int i = 0; i < 100000000000; i++) {
-	// }
-	// return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-	struct file **table = curr->fd_table;
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	fd_table_close();
-
+	for (int i = 2; i < FDCOUNT_LIMIT; i++) {
+		close(i);
+	}
+	
+	palloc_free_multiple(curr->fd_table, FDT_PAGES);
+	file_close(curr->running);
+	process_cleanup ();
 	sema_up(&curr->wait_sema);
 	sema_down (&curr->exit_sema);
-	
-	palloc_free_page(table);
-	process_cleanup ();
 }
 
 /* Free the current process's resources. */
@@ -397,11 +399,12 @@ static bool validate_segment (const struct Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes,
 		bool writable);
-void fd_table_close();
 /* Loads an ELF executable from FILE_NAME into the current thread.
  * Stores the executable's entry point into *RIP
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
+extern struct lock file_lock;
+
 static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
@@ -418,12 +421,17 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
 
 	/* Open executable file. */
+	lock_acquire(&file_lock);
 	file = filesys_open (file_name);
+	lock_release(&file_lock);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
+	t->running = file;
+	file_deny_write(file);
+	
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -499,12 +507,10 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
-	success = true;
+	success = true; 
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	// file_close (file);
-	
 	return success;
 }
 
@@ -734,7 +740,7 @@ void tokenizer(char *file_name, char **argv, int *argc) {
 void stacker(char **argv, int argc, struct intr_frame *if_) {
 	/* stacking variables */
 	char *addrs[MAX_ARGS];
-	int i = argc-1;
+	int i = argc - 1;
 	while (i >= 0) {
 		// printf("stacking %s at %p\n", argv[i], if_->rsp-strlen(argv[i])-1);
 		int arglen = strlen(argv[i]);
@@ -756,7 +762,7 @@ void stacker(char **argv, int argc, struct intr_frame *if_) {
 	*(uint64_t *)if_->rsp = 0;
 
 	/* stacking addresses */
-	i = argc-1;
+	i = argc - 1;
 	while (i >= 0) {
 		// printf("stacking %p at %p\n", addrs[i], if_->rsp-8);
 		if_->rsp -= 8;
