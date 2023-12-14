@@ -64,7 +64,6 @@ int add_file_to_fd_table (struct file *file) {
 	}
 	
 	fdt[curr->fd_idx] = file;
-
 	return curr->fd_idx;
 }
 
