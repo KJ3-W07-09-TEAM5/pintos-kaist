@@ -16,7 +16,6 @@ void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
 struct file *get_file_from_fd_table (int fd);
-
 struct lock file_lock;
 
 /* System call.
@@ -43,6 +42,7 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+
 	lock_init(&file_lock);
 }
 
@@ -57,7 +57,6 @@ int add_file_to_fd_table (struct file *file) {
 	struct thread *t = thread_current();
 	struct file **fdt = t->fd_table;
 	int fd = t->fd_idx;
-
 	while (t->fd_table[fd] != NULL) {
 		if (fd >= FDCOUNT_LIMIT) {
 			t->fd_idx = FDCOUNT_LIMIT;
@@ -65,7 +64,6 @@ int add_file_to_fd_table (struct file *file) {
 		}
 		fd++;
 	}
-
 	t->fd_idx = fd;
 	fdt[fd] = file;
 	return fd;
@@ -117,17 +115,13 @@ bool remove (const char *file) {
 
 int open (const char *file) {
 	check_address(file);
-
 	lock_acquire(&file_lock);
 	struct file *file_info = filesys_open(file);
 	lock_release(&file_lock);
-
 	if (file_info == NULL) {
 		return -1;
 	}
-
 	int fd = add_file_to_fd_table(file_info);
-
 	if (fd == -1) {
 		file_close(file_info);
 	}
@@ -135,18 +129,12 @@ int open (const char *file) {
 }
 
 int filesize (int fd) {
-	// struct file *fileobj = get_file_from_fd_table(fd);
-	// if (fileobj == NULL) {
-	// 	return -1;
-	// }
-	// file_length(fileobj);
 	return file_length(get_file_from_fd_table(fd));
 }
 
 int read (int fd, void *buffer, unsigned length) {
 	check_address(buffer);
 	int bytesRead = 0;
-
 	if (fd == 0) { 
 		for (int i = 0; i < length; i++) {
 			char c = input_getc();
@@ -197,29 +185,27 @@ int write (int fd, const void *buffer, unsigned length) {
 }
 
 void seek (int fd, unsigned position) {
-	struct file *file = get_file_from_fd_table(fd);
-
-	if (file == NULL) {
+	struct file *f = get_file_from_fd_table(fd);
+	if (f == NULL) {
 		return;
 	}
-	file_seek(file, position);
+	file_seek(f, position);
 }
 
 unsigned tell (int fd) {
-	struct file *file = get_file_from_fd_table(fd);
-	if (file == NULL) {
+	struct file *f = get_file_from_fd_table(fd);
+	if (f == NULL) {
 		return -1;
 	}
-	return file_tell(file);
+	return file_tell(f);
 }
 
 void close (int fd) {
 	struct thread *t = thread_current();
 	struct file **fdt = t->fd_table;
-	if(fd < 0 || fd >= MAX_FILE) {
+	if (fd < 0 || fd >= 128) {
 		return;
 	}
-
 	if (fdt[fd] == NULL) {
 		return;
 	}
@@ -232,10 +218,10 @@ void
 syscall_handler (struct intr_frame *f) {
 	switch (f->R.rax) {
 		case SYS_HALT:
-			halt();			// pintos를 종료시키는 시스템 콜
+			halt();
 			break;
 		case SYS_EXIT:
-			exit(f->R.rdi);	// 현재 프로세스를 종료시키는 시스템 콜
+			exit(f->R.rdi);
 			break;
 		case SYS_FORK:
 			f->R.rax = fork(f->R.rdi, f);

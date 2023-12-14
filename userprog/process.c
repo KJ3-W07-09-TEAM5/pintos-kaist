@@ -96,7 +96,6 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	if (child->exit_status == TID_ERROR) {
 		return TID_ERROR;
 	}
-
 	return tid;
 }
 
@@ -117,14 +116,14 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	}
 
 	/* 2. Resolve VA from the parent's page map level 4. */
-	parent_page = pml4_get_page (parent->pml4, va);
+	parent_page = pml4_get_page(parent->pml4, va);
 	if (parent_page == NULL) {
 		return false;
 	}
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	newpage = palloc_get_page (PAL_USER);
+	newpage = palloc_get_page(PAL_USER);
 	if (newpage == NULL) {
 		return false;
 	}
@@ -132,8 +131,8 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
-	memcpy (newpage, parent_page, PGSIZE);
-	writable = is_writable (pte);
+	memcpy(newpage, parent_page, PGSIZE);
+	writable = is_writable(pte);
 
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
@@ -159,7 +158,6 @@ __do_fork (void *aux) {
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
-	
 	memcpy (&if_, parent_tf, sizeof (struct intr_frame));
 	if_.R.rax = 0;
 
@@ -199,6 +197,8 @@ __do_fork (void *aux) {
 	}
 	current->fd_idx = parent->fd_idx;
 	sema_up(&current->fork_sema);
+
+	// process_init ();
 
 	/* Finally, switch to the newly created process. */
 	if (succ) {
@@ -251,7 +251,8 @@ process_exec (void *f_name) {
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK-_if.rsp, true);
 	/* project 2: argument passing */
 
-	palloc_free_page(file_name);
+	palloc_free_page (file_name);
+
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -297,7 +298,9 @@ process_exit (void) {
 	}
 	
 	palloc_free_multiple(curr->fd_table, FDT_PAGES);
+
 	file_close(curr->running);
+
 	process_cleanup ();
 	sema_up(&curr->wait_sema);
 	sema_down (&curr->exit_sema);
@@ -404,7 +407,6 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
 extern struct lock file_lock;
-
 static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
@@ -431,7 +433,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	t->running = file;
 	file_deny_write(file);
-	
+
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -549,6 +551,7 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
 
 	/* Disallow mapping page 0.
 	   Not only is it a bad idea to map page 0, but if we allowed
+	   it then user code that passed a null pointer to system calls
 	   could quite likely panic the kernel by way of null pointer
 	   assertions in memcpy(), etc. */
 	if (phdr->p_vaddr < PGSIZE)
