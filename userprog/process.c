@@ -274,9 +274,8 @@ process_wait (tid_t child_tid) {
 
 	sema_down (&child->wait_sema);
 	list_remove (&child->child_elem);
-	int exit_status = child->exit_status;
 	sema_up (&child->exit_sema);
-	return exit_status;
+	return child->exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
