@@ -62,6 +62,7 @@ int add_file_to_fd_table (struct file *file) {
 	if(curr->fd_idx == FDCOUNT_LIMIT){
 		return -1;
 	}
+
 	fdt[curr->fd_idx] = file;
 
 	return curr->fd_idx;
