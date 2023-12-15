@@ -216,6 +216,12 @@ uint64_t page_hash(const struct hash_elem *h, void *aux UNUSED) {
     const struct page *p = hash_entry(h, struct page, hash_elem);
     return hash_bytes(&p->va, sizeof p->va);
 }
+/* Returns a hash value for page p. */
+uint64_t page_hash(const struct hash_elem *h, void *aux UNUSED) {
+	const struct page *p = hash_entry(h, struct page, hash_elem);
+	return hash_bytes (&p->va, sizeof p->va);
+}
+
 
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED) {
