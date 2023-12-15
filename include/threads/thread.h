@@ -141,6 +141,7 @@ struct thread {
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 
+
 	/* filesys */
 	struct file **fd_table;
 	int fd_idx;
