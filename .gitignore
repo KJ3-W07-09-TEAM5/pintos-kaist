@@ -1,1 +1,7 @@
 .vscode/
+*.bin
+*.d
+*.o
+*.s
+threads/build/*
+userprog/build/*
