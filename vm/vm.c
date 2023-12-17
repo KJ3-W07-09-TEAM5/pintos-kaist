@@ -133,11 +133,7 @@ static struct frame *vm_get_frame(void) {
     frame->kva = palloc_get_page(PAL_USER);
 
     if (frame->kva == NULL) {
-        // kva를 더이상 할당받을 수 없다? -> 희생자가 생겨야함.
-        frame = vm_evict_frame();
-        frame->page = NULL;
-        // frame의 kva는 있음. 살려놔야함.
-        return frame;
+        PANIC("TODO");
     }
 
     ASSERT(frame != NULL);
@@ -146,6 +142,14 @@ static struct frame *vm_get_frame(void) {
     list_push_back(&frame_table, &frame->frame_elem);
     return frame;
 }
+
+// if (frame->kva == NULL) {
+//         // kva를 더이상 할당받을 수 없다? -> 희생자가 생겨야함.
+//         frame = vm_evict_frame();
+//         frame->page = NULL;
+//         // frame의 kva는 있음. 살려놔야함.
+//         return frame;
+//     }
 
 /* Growing the stack. */
 static void vm_stack_growth(void *addr UNUSED) {}
@@ -196,14 +200,16 @@ static bool vm_do_claim_page(struct page *page) {
     /* TODO: Insert page table entry to map page's VA to frame's PA. */
     if (!pml4_get_page(thread_current()->pml4,
                        page->va)) {  // NULL이어야 기존것이 아님.
-        set_page = pml4_set_page(thread_current()->pml4, page->va, frame->kva);
+        set_page = pml4_set_page(thread_current()->pml4, page->va, frame->kva,
+                                 page->writable);
         if (set_page) {
-            return swap_in(page, frame->kva);
+            return true;
         }
     }
 
     return false;
 }
+
 /* Returns true if page a precedes page b. */
 bool page_less(const struct hash_elem *a, const struct hash_elem *b,
                void *aux UNUSED) {
@@ -216,12 +222,6 @@ uint64_t page_hash(const struct hash_elem *h, void *aux UNUSED) {
     const struct page *p = hash_entry(h, struct page, hash_elem);
     return hash_bytes(&p->va, sizeof p->va);
 }
-/* Returns a hash value for page p. */
-uint64_t page_hash(const struct hash_elem *h, void *aux UNUSED) {
-	const struct page *p = hash_entry(h, struct page, hash_elem);
-	return hash_bytes (&p->va, sizeof p->va);
-}
-
 
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED) {

@@ -46,8 +46,8 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
-	struct hash_elem hash_elem;
-
+	struct hash_elem hash_elem;  // for use spt hash-table.
+	bool writable; // to check page is writable.
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
