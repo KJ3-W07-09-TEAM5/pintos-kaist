@@ -5,3 +5,5 @@
 *.s
 threads/build/*
 userprog/build/*
+vm/build/*
+
