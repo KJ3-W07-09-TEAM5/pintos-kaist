@@ -85,7 +85,7 @@ struct page *spt_find_page(struct supplemental_page_table *spt UNUSED,
                            void *va UNUSED) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
-    //struct page temp_page;
+    // struct page temp_page;
     page = (struct page *)malloc(sizeof(struct page));
     struct hash_elem *h_e;
 
@@ -147,7 +147,6 @@ static struct frame *vm_evict_frame(void) {
 static struct frame *vm_get_frame(void) {
     struct frame *frame = NULL;
     frame = (struct frame *)malloc(sizeof(struct frame));
-    // 동적할당을 안하면 어떻게 공간을 확보하냐??
 
     /* TODO: Fill this function. */
     frame->page = NULL;
@@ -164,8 +163,6 @@ static struct frame *vm_get_frame(void) {
     return frame;
 }
 
-
-
 /* Growing the stack. */
 static void vm_stack_growth(void *addr UNUSED) {}
 
@@ -181,7 +178,6 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
     /* TODO: Validate the fault */
     /* TODO: Your code goes here */
     page = spt_find_page(spt, addr);
-
     return vm_do_claim_page(page);
 }
 
