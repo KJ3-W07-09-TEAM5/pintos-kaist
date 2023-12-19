@@ -2,6 +2,8 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "lib/kernel/hash.h"
+#include "threads/synch.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -44,6 +46,8 @@ struct page {
 	const struct page_operations *operations;
 	void *va;              /* Address in terms of user space */
 	struct frame *frame;   /* Back reference for frame */
+	bool writable;
+	struct hash_elem hash_elem;
 
 	/* Your implementation */
 
@@ -57,6 +61,10 @@ struct page {
 		struct page_cache page_cache;
 #endif
 	};
+};
+
+struct supplemental_page_table {
+	struct hash pages;
 };
 
 /* The representation of "frame" */
@@ -76,16 +84,23 @@ struct page_operations {
 	enum vm_type type;
 };
 
+struct load_segment_aux {
+	struct file *file;
+	off_t ofs;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+};
+
 #define swap_in(page, v) (page)->operations->swap_in ((page), v)
 #define swap_out(page) (page)->operations->swap_out (page)
 #define destroy(page) \
 	if ((page)->operations->destroy) (page)->operations->destroy (page)
 
+#define ONE_MB (1 << 20) // 1MB
+
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
-struct supplemental_page_table {
-};
 
 #include "threads/thread.h"
 void supplemental_page_table_init (struct supplemental_page_table *spt);
