@@ -12,6 +12,7 @@ struct list frame_table;
 void vm_init(void) {
     vm_anon_init();
     vm_file_init();
+    list_init(&frame_table);
 #ifdef EFILESYS /* For project 4 */
     pagecache_init();
 #endif
@@ -54,7 +55,23 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
          * TODO: and then create "uninit" page struct by calling uninit_new. You
          * TODO: should modify the field after calling the uninit_new. */
 
+        struct page *new_page = (struct page *)malloc(sizeof(struct page));
+        typedef bool (*page_initializer)(struct page *, enum vm_type,
+                                         void *kva);
+        page_initializer new_initializer = NULL;
+
+        if (type == VM_ANON) {
+            new_initializer = anon_initializer;
+            uninit_new(new_page, upage, init, VM_ANON, aux, new_initializer);
+        }
+        if (type == VM_FILE) {
+            new_initializer = file_backed_initializer;
+            uninit_new(new_page, upage, init, VM_FILE, aux, new_initializer);
+        }
+
         /* TODO: Insert the page into the spt. */
+        new_page->writable = writable;
+        return spt_insert_page(spt, new_page);
     }
 err:
     return false;
@@ -68,17 +85,21 @@ struct page *spt_find_page(struct supplemental_page_table *spt UNUSED,
                            void *va UNUSED) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
-    // sdt 순회하면서 page에 해당하는 va를 다 까봐야하는거 아님?
-    struct hash_iterator i;
-    hash_first(&i, &spt->hash_table);
-    while (hash_next(&i)) {
-        struct page *p = hash_entry(hash_cur(&i), struct page, hash_elem);
-        if (p->va == va) {
-            page = p;
-            return page;
-        }
+    //struct page temp_page;
+    page = (struct page *)malloc(sizeof(struct page));
+    struct hash_elem *h_e;
+
+    page->va = pg_round_down(va);  // va를 페이지 경계로 내림하는 기능
+
+    h_e = hash_find(&spt->hash_table, &page->hash_elem);
+
+    free(page);
+
+    if (h_e == NULL) {
+        return NULL;
+    } else {
+        return hash_entry(h_e, struct page, hash_elem);
     }
-    return page;
 }
 
 /* Insert PAGE into spt with validation. */
@@ -143,13 +164,7 @@ static struct frame *vm_get_frame(void) {
     return frame;
 }
 
-// if (frame->kva == NULL) {
-//         // kva를 더이상 할당받을 수 없다? -> 희생자가 생겨야함.
-//         frame = vm_evict_frame();
-//         frame->page = NULL;
-//         // frame의 kva는 있음. 살려놔야함.
-//         return frame;
-//     }
+
 
 /* Growing the stack. */
 static void vm_stack_growth(void *addr UNUSED) {}
@@ -165,6 +180,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
     struct page *page = NULL;
     /* TODO: Validate the fault */
     /* TODO: Your code goes here */
+    page = spt_find_page(spt, addr);
 
     return vm_do_claim_page(page);
 }
@@ -203,7 +219,7 @@ static bool vm_do_claim_page(struct page *page) {
         set_page = pml4_set_page(thread_current()->pml4, page->va, frame->kva,
                                  page->writable);
         if (set_page) {
-            return true;
+            return swap_in(page, frame->kva);
         }
     }
 
