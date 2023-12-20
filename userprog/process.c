@@ -627,7 +627,7 @@ struct lazy_load_info {
     off_t ofs;
     size_t read_bytes;
     size_t zero_bytes;
-    bool writable;
+    
 };
 
 static bool lazy_load_segment(struct page *page, void *aux) {
@@ -639,8 +639,7 @@ static bool lazy_load_segment(struct page *page, void *aux) {
     off_t ofs = info->ofs;
     size_t page_read_bytes = info->read_bytes;
     size_t page_zero_bytes = info->zero_bytes;
-    bool writable = info->writable;
-
+    
     file_seek(file, ofs);
 
     if (file_read(file, page->frame->kva, page_read_bytes) !=
@@ -649,15 +648,6 @@ static bool lazy_load_segment(struct page *page, void *aux) {
         return false;
     }
     memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
-
-    // /* Add the page to the process's address space. */
-    // if (!install_page(page->va, page->frame->kva, writable)) {
-    //     printf("fail\n");
-    //     palloc_free_page(page->frame->kva);
-    //     return false;
-    // }
-
-    free(aux);
 
     return true;
 }
@@ -701,13 +691,12 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
         aux_info->ofs = ofs;
         aux_info->read_bytes = page_read_bytes;
         aux_info->zero_bytes = page_zero_bytes;
-        aux_info->writable = writable;
+        
         // upage는 vm_alloc_page_with_initializer에 직접 전달됨.
         aux = aux_info;
-        
+
         if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable,
                                             lazy_load_segment, aux)) {
-            free(aux_info);
             return false;
         }
         /* Advance. */
@@ -728,19 +717,13 @@ static bool setup_stack(struct intr_frame *if_) {
      * TODO: If success, set the rsp accordingly.
      * TODO: You should mark the page is stack. */
     /* TODO: Your code goes here */
-    if (vm_alloc_page(VM_ANON, stack_bottom, true)) {
+    if (vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)) {
         if (vm_claim_page(stack_bottom)) {
             if_->rsp = USER_STACK;
             success = true;
         }
     }
-    struct page *stack_page =
-        spt_find_page(&thread_current()->spt, stack_bottom);
 
-    if (stack_page != NULL) {
-        stack_page->is_stack = true;
-        success = true;
-    }
     return success;
 }
 #endif /* VM */
