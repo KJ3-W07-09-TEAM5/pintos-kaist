@@ -66,10 +66,6 @@ struct page {
     };
 };
 
-struct supplemental_page_table {
-	struct hash pages;
-};
-
 /* The representation of "frame" */
 struct frame {
     void *kva;
@@ -99,7 +95,6 @@ struct page_operations {
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
 struct supplemental_page_table {
-    // spt의 자료구조 자체를 먼저 정해보아요 ~~
     struct hash hash_table;
 };
 

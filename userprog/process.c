@@ -18,7 +18,6 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "intrinsic.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
