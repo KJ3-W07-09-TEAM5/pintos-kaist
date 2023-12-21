@@ -66,6 +66,10 @@ struct page {
     };
 };
 
+struct supplemental_page_table {
+	struct hash pages;
+};
+
 /* The representation of "frame" */
 struct frame {
     void *kva;
@@ -88,6 +92,8 @@ struct page_operations {
 #define swap_out(page) (page)->operations->swap_out(page)
 #define destroy(page) \
     if ((page)->operations->destroy) (page)->operations->destroy(page)
+
+#define ONE_MB (1 << 20) // 1MB
 
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.

@@ -52,19 +52,20 @@ struct page *check_address(void *addr) {
 }
 
 int add_file_to_fd_table (struct file *file) {
-	struct thread *t = thread_current();
-	struct file **fdt = t->fd_table;
-	int fd = t->fd_idx;
-	while (t->fd_table[fd] != NULL) {
-		if (fd >= FDCOUNT_LIMIT) {
-			t->fd_idx = FDCOUNT_LIMIT;
-			return -1;
-		}
-		fd++;
+	struct thread *curr = thread_current();
+	struct file **fdt = curr->fd_table;
+	
+	while(curr->fd_idx<FDCOUNT_LIMIT && fdt[curr->fd_idx]){
+		curr->fd_idx++;
 	}
-	t->fd_idx = fd;
-	fdt[fd] = file;
-	return fd;
+
+	if(curr->fd_idx == FDCOUNT_LIMIT){
+		return -1;
+	}
+
+	fdt[curr->fd_idx] = file;
+
+	return curr->fd_idx;
 }
 
 void halt(void) {
