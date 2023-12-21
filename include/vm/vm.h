@@ -53,7 +53,7 @@ struct page {
     struct hash_elem hash_elem;  // for use spt hash-table.
     bool writable;               // to check page is writable.
 
-    bool is_stack;  // to check is it stack page.
+    //bool is_stack;  // to check is it stack page.
     /* Per-type data are binded into the union.
      * Each function automatically detects the current union */
     union {
