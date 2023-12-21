@@ -229,6 +229,7 @@ int process_exec(void *f_name) {
     _if.R.rsi = _if.rsp + 8;
     // hex_dump(_if.rsp, _if.rsp, USER_STACK-_if.rsp, true);
     /* project 2: argument passing */
+    thread_current()->user_rsp = _if.rsp;
 
     palloc_free_page(file_name);
 

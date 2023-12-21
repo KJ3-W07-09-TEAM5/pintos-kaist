@@ -44,11 +44,11 @@ syscall_init (void) {
 	lock_init(&file_lock);
 }
 
-void check_address(void *addr) {
-	struct thread *t = thread_current();
-	if (!is_user_vaddr(addr) || addr == NULL || pml4_get_page(t->pml4 , addr) == NULL) {
+struct page *check_address(void *addr) {
+	if (is_kernel_vaddr(addr) || addr == NULL)
 		exit(-1);
-	}
+
+	return spt_find_page(&thread_current()->spt, addr);
 }
 
 int add_file_to_fd_table (struct file *file) {
@@ -123,7 +123,7 @@ int filesize (int fd) {
 }
 
 int read (int fd, void *buffer, unsigned length) {
-	check_address(buffer);
+	validate_buffer(buffer, length, true);
 	int bytesRead = 0;
 	if (fd == 0) { 
 		for (int i = 0; i < length; i++) {
@@ -155,8 +155,33 @@ struct file *get_file_from_fd_table (int fd) {
 	return t->fd_table[fd];
 }
 
+void validate_buffer(void *buffer, size_t size, bool to_write) {
+
+    if (buffer == NULL)
+        exit(-1);
+
+    if (buffer <= USER_STACK && buffer >= thread_current()->user_rsp)
+        return;
+
+    void *start_addr = pg_round_down(buffer);
+    void *end_addr = pg_round_down(buffer + size);
+
+    ASSERT(start_addr <= end_addr);
+    for (void *addr = end_addr; addr >= start_addr; addr -= PGSIZE) {
+        // printf("addr: %p\n", addr);
+        struct page *pg = check_address(addr);
+        if (pg == NULL) {
+            exit(-1);
+        }
+        
+        if (pg->writable == false && to_write == true) {
+            exit(-1);
+        }
+    }
+}
+
 int write (int fd, const void *buffer, unsigned length) {
-	check_address(buffer);
+	validate_buffer(buffer, length, false);
 	int bytesRead = 0;
 
 	if (fd == 0) {
@@ -210,6 +235,8 @@ void close (int fd) {
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f) {
+    thread_current()->user_rsp = f->rsp;
+
 	switch (f->R.rax) {
 		case SYS_HALT:
 			halt();
