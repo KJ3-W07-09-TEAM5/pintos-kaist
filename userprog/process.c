@@ -715,7 +715,7 @@ static bool setup_stack(struct intr_frame *if_) {
 
     /* TODO: Map the stack on stack_bottom and claim the page immediately.
      * TODO: If success, set the rsp accordingly.
-     * TODO: You should mark the page is stack. */
+     * TODO: You should mark the page is stack. -> 기존 상위비트를 활용하자.*/
     /* TODO: Your code goes here */
     if (vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)) {
         if (vm_claim_page(stack_bottom)) {
