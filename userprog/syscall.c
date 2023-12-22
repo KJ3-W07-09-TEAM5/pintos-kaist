@@ -1,5 +1,3 @@
-#include <debug.h>
-#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -9,13 +7,21 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include "filesys/filesys.h"
+#include "userprog/process.h"
 #include "filesys/file.h"
+#include "threads/synch.h"
+#include "lib/string.h"
+#include "threads/palloc.h"
+#include "vm/vm.h"
+#include "filesys/directory.h"
+#include "filesys/inode.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 struct file *get_file_from_fd_table (int fd);
 struct lock file_lock;
-
+void * mmap (void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap (void *addr);
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -283,7 +289,48 @@ syscall_handler (struct intr_frame *f) {
 		case SYS_CLOSE:
 			close(f->R.rdi);
 			break;
+    	case SYS_MMAP:
+			f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+			break;
+		case SYS_MUNMAP:
+			munmap(f->R.rdi);
+			break;;
 		default:
 			exit(-1);
 	}
+}
+void munmap(void *addr){
+	do_munmap(addr);
+}
+
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
+	
+	struct thread *t = thread_current();
+	// 파일의 시작점(offset)이 page-align되지 않았을 때
+	if(offset % PGSIZE != 0){
+		return NULL;
+	}
+	// 가상 유저 page 시작 주소가 page-align되어있지 않을 때
+	/* failure case 2: 해당 주소의 시작점이 page-align되어 있는지 & user 영역인지 & 주소값이 null인지 & length가 0이하인지*/
+	if(pg_round_down(addr)!= addr || is_kernel_vaddr(addr) || addr == NULL || (long long)length <= 0){
+		return NULL;
+	}
+	// 매핑하려는 페이지가 이미 존재하는 페이지와 겹칠 때(==SPT에 존재하는 페이지일 때)
+	
+	if(spt_find_page(&t->spt,addr)){
+		return NULL;
+	}
+	
+	// 콘솔 입출력과 연관된 파일 디스크립터 값(0: STDIN, 1:STDOUT)일 때
+	if(fd == 0 || fd == 1){
+		exit(-1);
+	}
+	// 찾는 파일이 디스크에 없는경우
+
+	struct file *f = get_file_from_fd_table(fd);
+	if (f==NULL){
+		return NULL;
+	}
+
+	return do_mmap(addr, length, writable, f, offset);
 }
