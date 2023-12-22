@@ -4,6 +4,8 @@
 
 #include "include/lib/kernel/hash.h"
 #include "threads/malloc.h"
+#include "threads/mmu.h"
+#include "threads/vaddr.h"
 #include "vm/inspect.h"
 
 struct list frame_table;
@@ -54,8 +56,9 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
         /* TODO: Create the page, fetch the initialier according to the VM type,
          * TODO: and then create "uninit" page struct by calling uninit_new. You
          * TODO: should modify the field after calling the uninit_new. */
-
         struct page *new_page = (struct page *)malloc(sizeof(struct page));
+        // printf("thread: %s, initializer's page : %p\n", thread_name(),
+        // new_page);
         typedef bool (*page_initializer)(struct page *, enum vm_type,
                                          void *kva);
         page_initializer new_initializer = NULL;
@@ -71,6 +74,12 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
 
         /* TODO: Insert the page into the spt. */
         new_page->writable = writable;
+
+        // if (type == (VM_ANON | VM_MARKER_0)) {
+        //     printf("new allocated va is %p\n", new_page->va);
+        //     printf("--------\n");
+        // }
+
         return spt_insert_page(spt, new_page);
     }
 err:
@@ -85,8 +94,8 @@ struct page *spt_find_page(struct supplemental_page_table *spt UNUSED,
                            void *va UNUSED) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
-    // struct page temp_page;
     page = (struct page *)malloc(sizeof(struct page));
+    // printf("thread: %s, spt_find_page's page : %p\n", thread_name(), page);
     struct hash_elem *h_e;
 
     page->va = pg_round_down(va);  // va를 페이지 경계로 내림하는 기능
@@ -164,7 +173,11 @@ static struct frame *vm_get_frame(void) {
 }
 
 /* Growing the stack. */
-static void vm_stack_growth(void *addr UNUSED) {}
+#define ONE_MB (1 << 20)
+static void vm_stack_growth(void *addr UNUSED) {
+    uintptr_t stack_bottom = pg_round_down(addr);
+    vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true);
+}
 
 /* Handle the fault on write_protected page */
 static bool vm_handle_wp(struct page *page UNUSED) {}
@@ -176,24 +189,27 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
     struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
     struct page *page = NULL;
     /* TODO: Validate the fault */
-    /* TODO: Your code goes here */
-
-    if (addr == NULL || is_kernel_vaddr(addr)) {
+    if (is_kernel_vaddr(addr) || addr == NULL || !not_present) {
         return false;
     }
 
-    if (not_present) {
-        page = spt_find_page(spt, addr);
-        if (page == NULL) {
-            return false;
-        }
-        if (write && !(page->writable)) {
-            return false;
-        }
-        return vm_do_claim_page(page);
+    /* TODO: Your code goes here */
+    uintptr_t stack_limit = USER_STACK - (1 << 20);
+    uintptr_t rsp = user ? f->rsp : thread_current()->user_rsp;
+
+    if (addr >= rsp - 8 && addr <= USER_STACK && addr >= stack_limit) {
+        vm_stack_growth(addr);
     }
 
-    return false;
+    if ((page = spt_find_page(spt, addr)) == NULL) {
+        return false;
+    }
+
+    if (write && !(page->writable)) {
+        return false;
+    }
+
+    return vm_do_claim_page(page);
 }
 
 /* Free the page.

@@ -89,11 +89,12 @@ struct page_operations {
 #define destroy(page) \
     if ((page)->operations->destroy) (page)->operations->destroy(page)
 
+#define ONE_MB (1 << 20) // 1MB
+
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
 struct supplemental_page_table {
-    // spt의 자료구조 자체를 먼저 정해보아요 ~~
     struct hash hash_table;
 };
 
