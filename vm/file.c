@@ -1,9 +1,9 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
-#include "vm/vm.h"
 #include "userprog/process.h"
 
-
+static bool file_backed_swap_in (struct page *page, void *kva);
+static bool file_backed_swap_out (struct page *page);
 static void file_backed_destroy (struct page *page);
 
 void do_munmap (void *addr);
@@ -108,11 +108,11 @@ void do_munmap (void *addr) {
 	// find_page->frame = NULL;
 	// find_frame->page = NULL;
 
-	struct container* container = (struct container*)find_page->uninit.aux;
+	struct lazy_load_info* container = (struct lazy_load_info*)find_page->uninit.aux;
 		// 페이지의 dirty bit이 1이면 true를, 0이면 false를 리턴한다.
 	if (pml4_is_dirty(curr->pml4, find_page->va)){
 		// 물리 프레임에 변경된 데이터를 다시 디스크 파일에 업데이트 buffer에 있는 데이터를 size만큼, file의 file_ofs부터 써준다.
-		file_write_at(container->file, addr, container->read_bytes, container->offset);
+		file_write_at(container->file, addr, container->read_bytes, container->ofs);
 		// dirty bit = 0
 		// 인자로 받은 dirty의 값이 1이면 page의 dirty bit을 1로, 0이면 0으로 변경해준다.
 		pml4_set_dirty(curr->pml4,find_page->va,0);

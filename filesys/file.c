@@ -2,8 +2,6 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-#include "vm/file.h"
-#include "vm/vm.h"
 #include "userprog/process.h"
 
 
