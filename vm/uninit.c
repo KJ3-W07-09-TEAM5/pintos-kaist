@@ -52,8 +52,25 @@ uninit_initialize (struct page *page, void *kva) {
 	void *aux = uninit->aux;
 
 	/* TODO: You may need to fix this function. */
-	return uninit->page_initializer (page, uninit->type, kva) &&
-		(init ? init (page, aux) : true);
+	// bool succ = uninit->page_initializer (page, uninit->type, kva) &&
+	// 	(init ? init (page, aux) : true);
+	bool page_init_succ = uninit->page_initializer(page, uninit->type, kva);
+	bool init_succ = init ? init(page, aux) : true;
+
+	if (!page_init_succ) {
+		printf("page_initializer failed!\n");
+	}
+	if (!init_succ) {
+		printf("init function failed!\n");
+	}
+
+	bool succ = page_init_succ && init_succ;
+	if (!succ) {
+		printf("잡았다 개새끼야!!\n");
+	}
+	return succ;
+	// return uninit->page_initializer (page, uninit->type, kva) &&
+	// 	(init ? init (page, aux) : true);
 }
 
 /* Free the resources hold by uninit_page. Although most of pages are transmuted
@@ -62,12 +79,13 @@ uninit_initialize (struct page *page, void *kva) {
  * PAGE will be freed by the caller. */
 static void
 uninit_destroy (struct page *page) {
-	if (page->operations == &uninit_ops) {
-        struct uninit_page *uninit = &page->uninit;
-        /* 페이지의 보조 정보를 해제합니다. */
-        if (uninit->aux != NULL) {
-            file_close(uninit->aux);
-            uninit->aux = NULL;
-        }
-    }
+	struct uninit_page *uninit UNUSED = &page->uninit;
+	// if (page->operations == &uninit_ops) {
+    //     struct uninit_page *uninit = &page->uninit;
+    //     /* 페이지의 보조 정보를 해제합니다. */
+    //     if (uninit->aux != NULL) {
+    //         file_close(uninit->aux);
+    //         uninit->aux = NULL;
+    //     }
+    // }
 }

@@ -112,12 +112,17 @@ bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
                      struct page *page UNUSED) {
     int succ = false;
     /* TODO: Fill this function. */
-    void *va_want_push = page->va;
-    if (spt_find_page(spt, va_want_push) == NULL) {
-        hash_insert(&spt->hash_table, &page->hash_elem);
-        succ = true;
-    }
-    return succ;
+    //void *va_want_push = page->va;
+    // if (spt_find_page(spt, va_want_push) == NULL) {
+    //     hash_insert(&spt->hash_table, &page->hash_elem);
+    //     succ = true;
+    // }
+    // return succ;
+    if (hash_insert(&spt->hash_table,&page->hash_elem) == NULL){
+		return true;
+	}
+	return false;
+
 }
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page) {
@@ -184,6 +189,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
     struct page *page = NULL;
 	/* TODO: Validate the fault */
 	if (is_kernel_vaddr(addr) || addr == NULL || !not_present) {
+        //printf("누구냐 너 0  !\n");
 		return false;
 	}
 
@@ -195,17 +201,22 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
     }
 
 	if ((page = spt_find_page(spt, addr)) == NULL) {
+        //printf("누구냐 너 1  !\n");
 		return false;
 	}
 
-	// if (!page->writable && write) {
-	// 	return vm_handle_wp(page);
-	// }
+	
     if (write && !(page->writable)) {
+        //printf("누구냐 너 2  !\n");
         return false;
     }
-
-    return vm_do_claim_page(page);
+    bool succ = false;
+    succ = vm_do_claim_page(page);
+    if (!succ) {
+        //printf("누구냐 너 4!\n");
+    }
+    return succ;
+    //return vm_do_claim_page(page);
 }
 
 /* Free the page.
@@ -242,10 +253,13 @@ static bool vm_do_claim_page(struct page *page) {
         set_page = pml4_set_page(thread_current()->pml4, page->va, frame->kva,
                                  page->writable);
         if (set_page) {
-            return swap_in(page, frame->kva);
+            bool succ = false;
+            succ = swap_in(page, frame->kva);
+            return succ;
+            //return swap_in(page, frame->kva);
         }
     }
-
+    
     return false;
 }
 
@@ -323,6 +337,19 @@ void page_free(struct hash_elem *e, void *aux) {
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {
     // /* TODO: Destroy all the supplemental_page_table hold by thread and
     //  * TODO: writeback all the modified contents to the storage. */
+
+    struct hash_iterator i;
+    struct frame *target_frame;
+    hash_first (&i, &spt->hash_table);
+    while(hash_next(&i)) {
+        struct page *target_page = hash_entry(hash_cur(&i), struct page, hash_elem);
+        target_frame = target_page -> frame;
+        if (target_page->operations->type == VM_FILE) {
+            do_munmap(target_page->va);
+        }
+    }
+
+
     hash_clear(&spt->hash_table, page_free);
     // hash_destroy(&spt->hash_table, page_free);
 }
