@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include <stdio.h>
 #include <syscall-nr.h>
 
@@ -16,6 +17,21 @@
 #include "userprog/gdt.h"
 #include "userprog/process.h"
 #include "vm/vm.h"
+=======
+#include <debug.h>
+#include <stdio.h>
+#include <syscall-nr.h>
+
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "intrinsic.h"
+#include "threads/flags.h"
+#include "threads/interrupt.h"
+#include "threads/loader.h"
+#include "threads/thread.h"
+#include "userprog/gdt.h"
+#include "userprog/process.h"
+>>>>>>> b35c13b984f2e435e1a298653997f649d76224f2
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -51,9 +67,13 @@ void syscall_init(void) {
 }
 
 struct page *check_address(void *addr) {
+<<<<<<< HEAD
     if (is_kernel_vaddr(addr) || addr == NULL) {
 		exit(-1);
 	} 
+=======
+    if (is_kernel_vaddr(addr) || addr == NULL) exit(-1);
+>>>>>>> b35c13b984f2e435e1a298653997f649d76224f2
 
     return spt_find_page(&thread_current()->spt, addr);
 }
@@ -158,9 +178,14 @@ struct file *get_file_from_fd_table(int fd) {
 }
 
 void validate_buffer(void *buffer, size_t size, bool to_write) {
+<<<<<<< HEAD
     if (buffer == NULL)      
         exit(-1);
     
+=======
+    if (buffer == NULL) exit(-1);
+
+>>>>>>> b35c13b984f2e435e1a298653997f649d76224f2
     if (buffer <= USER_STACK && buffer >= thread_current()->user_rsp) return;
 
     void *start_addr = pg_round_down(buffer);
@@ -174,7 +199,12 @@ void validate_buffer(void *buffer, size_t size, bool to_write) {
             exit(-1);
         }
 
+<<<<<<< HEAD
         if (pg->writable == false && to_write == true) {
+=======
+        if (pg->writable == false) {
+            //printf("이게 왜 호출됨?\n");
+>>>>>>> b35c13b984f2e435e1a298653997f649d76224f2
             exit(-1);
         }
     }
@@ -230,6 +260,10 @@ void close(int fd) {
     fdt[fd] = NULL;
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> b35c13b984f2e435e1a298653997f649d76224f2
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f) {
     thread_current()->user_rsp = f->rsp;
@@ -279,6 +313,7 @@ void syscall_handler(struct intr_frame *f) {
         case SYS_CLOSE:
             close(f->R.rdi);
             break;
+<<<<<<< HEAD
         case SYS_MMAP:
             f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
             break;
@@ -286,6 +321,8 @@ void syscall_handler(struct intr_frame *f) {
             munmap(f->R.rdi);
             break;
             ;
+=======
+>>>>>>> b35c13b984f2e435e1a298653997f649d76224f2
         default:
             exit(-1);
     }

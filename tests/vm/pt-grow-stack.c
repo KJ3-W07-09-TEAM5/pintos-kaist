@@ -18,3 +18,4 @@ test_main (void)
   arc4_crypt (&arc4, stack_obj, sizeof stack_obj);
   msg ("cksum: %lu", cksum (stack_obj, sizeof stack_obj));
 }
+ 
