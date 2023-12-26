@@ -33,6 +33,7 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page by read contents from the file. */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
+    printf("file_backed_swap_in\n");
     if (page == NULL) {
         return false;
     }
@@ -79,7 +80,13 @@ file_backed_swap_out (struct page *page) {
 /* Destory the file backed page. PAGE will be freed by the caller. */
 static void
 file_backed_destroy (struct page *page) {
-	struct file_page *file_page UNUSED = &page->file;
+	struct thread *curr = thread_current();
+	struct lazy_load_info* info = (struct lazy_load_info*)page->uninit.aux;
+    if (pml4_is_dirty(curr->pml4, page->va)){
+		file_write_at(info->file, page->va, info->read_bytes, info->ofs);
+		pml4_set_dirty(curr->pml4, page->va,0);
+	} 
+	pml4_clear_page(curr->pml4, page->va); 
 }
 
 void *
@@ -108,7 +115,7 @@ do_mmap(void *addr, size_t length, int writable,
         구조체를 생성하는 것이 좋습니다.*/
         struct lazy_load_info *container =
             (struct lazy_load_info *)malloc(sizeof(struct lazy_load_info));
-        container->file = file;
+        container->file = f;
         container->ofs = offset;
         container->read_bytes = page_read_bytes;
        	container->zero_bytes = page_zero_bytes;
@@ -139,10 +146,7 @@ void do_munmap (void *addr) {
     		return NULL;
     	}
 
-		// 연결 해제
-		// find_page->frame = NULL;
-		// find_frame->page = NULL;
-
+		
 		struct lazy_load_info* container = (struct lazy_load_info*)find_page->uninit.aux;
 		// 페이지의 dirty bit이 1이면 true를, 0이면 false를 리턴한다.
 		if (pml4_is_dirty(curr->pml4, find_page->va)){
@@ -152,11 +156,7 @@ void do_munmap (void *addr) {
 			// 인자로 받은 dirty의 값이 1이면 page의 dirty bit을 1로, 0이면 0으로 변경해준다.
 			pml4_set_dirty(curr->pml4,find_page->va,0);
 		} 
-		// dirty bit = 0
-		// 인자로 받은 dirty의 값이 1이면 page의 dirty bit을 1로, 0이면 0으로 변경해준다.
 		
-		// present bit = 0
-		// 페이지의 present bit 값을 0으로 만들어주는 함수
 		pml4_clear_page(curr->pml4, find_page->va); 
 		addr += PGSIZE;
 	}

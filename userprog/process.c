@@ -639,7 +639,11 @@ bool lazy_load_segment(struct page *page, void *aux) {
         return false;
     }
     memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+    
+    //이걸 추가하는게 맞나...싶네요..
     file_seek(file,ofs);
+    //위에요
+    
     return true;
 }
 

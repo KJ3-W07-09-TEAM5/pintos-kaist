@@ -5,8 +5,10 @@ struct page;
 enum vm_type;
 
 struct anon_page {
+    int swap_sector;
 };
-
+struct bitmap *swap_table;
+int swap_size;
 void vm_anon_init (void);
 bool anon_initializer (struct page *page, enum vm_type type, void *kva);
 
