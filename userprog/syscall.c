@@ -294,7 +294,7 @@ syscall_handler (struct intr_frame *f) {
 			break;
 		case SYS_MUNMAP:
 			munmap(f->R.rdi);
-			break;;
+			break;
 		default:
 			exit(-1);
 	}

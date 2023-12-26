@@ -203,7 +203,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	// if (!page->writable && write) {
 	// 	return vm_handle_wp(page);
 	// }
-    if (write && !(page->writable)) {
+    if (write && !not_present) {
         return false;
     }
 
@@ -329,11 +329,6 @@ void spt_destroy_func(struct hash_elem *e, void *aux) {
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {
     // /* TODO: Destroy all the supplemental_page_table hold by thread and
-    //  * TODO: writeback all the modified contents to the storage. */
-    // hash_clear(&spt->hash_table, page_free);
-    // hash_destroy(&spt->hash_table, page_free);
-
-    lock_acquire(&kill_lock);
     hash_destroy(&spt->hash_table, spt_destroy_func);
-    lock_release(&kill_lock);
+    //  * TODO: writeback all the modified contents to the storage. */
 }

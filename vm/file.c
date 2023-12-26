@@ -1,6 +1,7 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
 #include "userprog/process.h"
+#include "vm/vm.h"
 
 static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
@@ -45,7 +46,13 @@ file_backed_swap_out (struct page *page) {
 /* Destory the file backed page. PAGE will be freed by the caller. */
 static void
 file_backed_destroy (struct page *page) {
-	struct file_page *file_page UNUSED = &page->file;
+    struct thread *curr = thread_current();
+	struct lazy_load_info* info = (struct lazy_load_info*)page->uninit.aux;
+    if (pml4_is_dirty(curr->pml4, page->va)){
+		file_write_at(info->file, page->va, info->read_bytes, info->ofs);
+		pml4_set_dirty(curr->pml4, page->va,0);
+	} 
+	pml4_clear_page(curr->pml4, page->va); 
 }
 
 void *
@@ -74,7 +81,7 @@ do_mmap(void *addr, size_t length, int writable,
         구조체를 생성하는 것이 좋습니다.*/
         struct lazy_load_info *container =
             (struct lazy_load_info *)malloc(sizeof(struct lazy_load_info));
-        container->file = file;
+        container->file = f;
         container->ofs = offset;
         container->read_bytes = page_read_bytes;
        	container->zero_bytes = page_zero_bytes;
