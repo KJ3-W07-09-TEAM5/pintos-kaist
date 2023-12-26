@@ -10,6 +10,7 @@
 
 #include "vm/vm.h"
 #include "vm/uninit.h"
+#include "userprog/process.h"
 
 static bool uninit_initialize (struct page *page, void *kva);
 static void uninit_destroy (struct page *page);
@@ -62,12 +63,10 @@ uninit_initialize (struct page *page, void *kva) {
  * PAGE will be freed by the caller. */
 static void
 uninit_destroy (struct page *page) {
-	if (page->operations == &uninit_ops) {
-        struct uninit_page *uninit = &page->uninit;
-        /* 페이지의 보조 정보를 해제합니다. */
-        if (uninit->aux != NULL) {
-            file_close(uninit->aux);
-            uninit->aux = NULL;
-        }
-    }
+	struct lazy_load_info *info;
+	if (!(info = page->uninit.aux))
+		return;
+
+	struct file *f = info->file;
+	page->uninit.aux = NULL;
 }
