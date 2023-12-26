@@ -33,13 +33,47 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 /* Swap in the page by read contents from the file. */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
-	struct file_page *file_page UNUSED = &page->file;
+    if (page == NULL) {
+        return false;
+    }
+
+    struct file_page *file_page UNUSED = &page->file;
+    
+    struct lazy_load_info* aux = (struct lazy_load_info*)page->uninit.aux;
+    struct file *file = aux->file;
+    off_t offset = aux->ofs;
+    size_t page_read_bytes = aux->read_bytes;
+    size_t page_zero_bytes = aux->zero_bytes;
+
+    file_seek(file, offset);
+
+    if (file_read(file, kva, page_read_bytes)!=(int)page_read_bytes) {
+        return false;
+    }
+
+    memset(kva+page_read_bytes, 0, page_zero_bytes);
+
+    return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool
 file_backed_swap_out (struct page *page) {
+    if (page == NULL) {
+        return false;
+    }
+
 	struct file_page *file_page UNUSED = &page->file;
+    struct lazy_load_info* aux = (struct lazy_load_info*)page->uninit.aux;
+    struct file *file = aux->file;
+
+    if(pml4_is_dirty(thread_current()->pml4, page->va)) {
+        file_write_at(file, page->va, aux->read_bytes, aux->ofs);
+        pml4_set_dirty(thread_current()->pml4, page->va, false);
+    }
+    pml4_clear_page(thread_current()->pml4, page->va);
+    return true;
+
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
@@ -96,32 +130,34 @@ do_mmap(void *addr, size_t length, int writable,
 
 void do_munmap (void *addr) {
 
-	struct thread *curr = thread_current();
-	struct page *find_page = spt_find_page(&curr->spt, addr);
-	// struct frame *find_frame =find_page->frame;
+	while(true){
+		struct thread *curr = thread_current();
+		struct page *find_page = spt_find_page(&curr->spt, addr);
+		// struct frame *find_frame =find_page->frame;
 		
-	if (find_page == NULL) {
-    	return NULL;
-    }
+		if (find_page == NULL) {
+    		return NULL;
+    	}
 
-	// 연결 해제
-	// find_page->frame = NULL;
-	// find_frame->page = NULL;
+		// 연결 해제
+		// find_page->frame = NULL;
+		// find_frame->page = NULL;
 
-	struct lazy_load_info* container = (struct lazy_load_info*)find_page->uninit.aux;
+		struct lazy_load_info* container = (struct lazy_load_info*)find_page->uninit.aux;
 		// 페이지의 dirty bit이 1이면 true를, 0이면 false를 리턴한다.
-	if (pml4_is_dirty(curr->pml4, find_page->va)){
-		// 물리 프레임에 변경된 데이터를 다시 디스크 파일에 업데이트 buffer에 있는 데이터를 size만큼, file의 file_ofs부터 써준다.
-		file_write_at(container->file, addr, container->read_bytes, container->ofs);
+		if (pml4_is_dirty(curr->pml4, find_page->va)){
+			// 물리 프레임에 변경된 데이터를 다시 디스크 파일에 업데이트 buffer에 있는 데이터를 size만큼, file의 file_ofs부터 써준다.
+			file_write_at(container->file, addr, container->read_bytes, container->ofs);
+			// dirty bit = 0
+			// 인자로 받은 dirty의 값이 1이면 page의 dirty bit을 1로, 0이면 0으로 변경해준다.
+			pml4_set_dirty(curr->pml4,find_page->va,0);
+		} 
 		// dirty bit = 0
 		// 인자로 받은 dirty의 값이 1이면 page의 dirty bit을 1로, 0이면 0으로 변경해준다.
-		pml4_set_dirty(curr->pml4,find_page->va,0);
-	} 
-	// dirty bit = 0
-	// 인자로 받은 dirty의 값이 1이면 page의 dirty bit을 1로, 0이면 0으로 변경해준다.
 		
-	// present bit = 0
-	// 페이지의 present bit 값을 0으로 만들어주는 함수
-	pml4_clear_page(curr->pml4, find_page->va); 
-	addr += PGSIZE;
+		// present bit = 0
+		// 페이지의 present bit 값을 0으로 만들어주는 함수
+		pml4_clear_page(curr->pml4, find_page->va); 
+		addr += PGSIZE;
+	}
 }
