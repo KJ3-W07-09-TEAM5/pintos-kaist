@@ -217,7 +217,6 @@ thread_create (const char *name, int priority,
 
 	/* process */
 	list_push_back(&thread_current()->child_list, &t->child_elem);
-	thread_current()->exit_status = -99;
 	
 	/* filesys */
 	t->fd_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);

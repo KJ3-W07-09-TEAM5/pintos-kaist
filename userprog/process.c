@@ -72,7 +72,9 @@ static void initd(void *f_name) {
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED) {
+#ifdef DEBUG
     printf("process_fork(), name: %s, _if: %p\n", name, if_);
+#endif
     /* Clone current thread to new thread.*/
     struct thread *parent = thread_current();
     memcpy(&parent->parent_tf, if_, sizeof(struct intr_frame));
@@ -81,10 +83,14 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED) {
 
     struct thread *child = get_child_thread(tid);
 
+#ifdef DEBUG
     printf("🔐sema_down(%s->fork_sema);\n", child->name);
+#endif
     sema_down(&child->fork_sema);
+#ifdef DEBUG
     printf("return from \"%s\"(%d), exit_status(not initialized): %d\n", name, tid,
            child->exit_status);
+#endif
 
     if (child->exit_status == TID_ERROR) {
         return TID_ERROR;
@@ -141,7 +147,9 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux) {
  *       That is, you are required to pass second argument of process_fork to
  *       this function. */
 static void __do_fork(void *aux) {
+#ifdef DEBUG
     printf("__do_fork(), aux: %p\n", aux);
+#endif
     struct intr_frame if_;
     struct thread *parent = (struct thread *)aux;
     struct thread *current = thread_current();
@@ -150,16 +158,22 @@ static void __do_fork(void *aux) {
     bool succ = true;
 
     /* 1. Read the cpu context to local stack. */
+#ifdef DEBUG
     printf("memcpy(&if_, parent_tf, sizeof(struct intr_frame));\n");
+#endif
     memcpy(&if_, parent_tf, sizeof(struct intr_frame));
     if_.R.rax = 0;
 
     /* 2. Duplicate PT */
+#ifdef DEBUG
     printf("current->pml4 = pml4_create();\n");
+#endif
     current->pml4 = pml4_create();
     if (current->pml4 == NULL) goto error;
 
+#ifdef DEBUG
     printf("process_activate(current);\n");
+#endif
     process_activate(current);
 #ifdef VM
     supplemental_page_table_init(&current->spt);
@@ -173,7 +187,9 @@ static void __do_fork(void *aux) {
      * TODO:       in include/filesys/file.h. Note that parent should not return
      * TODO:       from the fork() until this function successfully duplicates
      * TODO:       the resources of parent.*/
+#ifdef DEBUG
     printf("current->running = file_duplicate(parent->running);\n");
+#endif
     if (parent->fd_idx == FDCOUNT_LIMIT) {
         goto error;
     }
@@ -187,7 +203,9 @@ static void __do_fork(void *aux) {
         current->fd_table[i] = file;
     }
     current->fd_idx = parent->fd_idx;
+#ifdef DEBUG
     printf("🔐sema_up(%s->fork_sema);\n", thread_name());
+#endif
     sema_up(&current->fork_sema);
 
     // process_init ();
@@ -195,7 +213,9 @@ static void __do_fork(void *aux) {
     /* Finally, switch to the newly created process. */
     if (succ) do_iret(&if_);
 error:
+#ifdef DEBUG
     printf("🔐sema_up(%s->fork_sema);\n", thread_name());
+#endif
     sema_up(&current->fork_sema);
     exit(TID_ERROR);
 }
@@ -282,7 +302,9 @@ void process_exit(void) {
      * TODO: Implement process termination message (see
      * TODO: project2/process_termination.html).
      * TODO: We recommend you to implement process resource cleanup here. */
+#ifdef DEBUG
     printf("process_exit() with %s\n", thread_name());
+#endif
     for (int i = 2; i < curr->fd_idx; i++) {
         close(i);
     }
@@ -291,9 +313,13 @@ void process_exit(void) {
     file_close(curr->running);
 
     process_cleanup();
+#ifdef DEBUG
     printf("🔐sema_up(%s->wait_sema);\n", thread_name());
+#endif
     sema_up(&curr->wait_sema);
+#ifdef DEBUG
     printf("🔐sema_down(%s->exit_sema);\n", thread_name());
+#endif
     sema_down(&curr->exit_sema);
 }
 

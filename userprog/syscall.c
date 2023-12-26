@@ -101,9 +101,14 @@ int wait (tid_t tid) {
 }
 
 bool create (const char *file, unsigned initial_size) {
+#ifdef DEBUG
 	printf("create() check address to be called: %p\n", file);
+#endif
 	check_address(file);
-	return filesys_create(file, initial_size);
+	lock_acquire(&file_lock);
+	int result = filesys_create(file, initial_size);
+	lock_release(&file_lock);
+	return result;
 }
 
 bool remove (const char *file) {
@@ -112,7 +117,9 @@ bool remove (const char *file) {
 }
 
 int open (const char *file) {
+#ifdef DEBUG
 	printf("open() check address to be called: %p\n", file);
+#endif
 	check_address(file);
 	lock_acquire(&file_lock);
 	struct file *file_info = filesys_open(file);
@@ -122,7 +129,9 @@ int open (const char *file) {
 	}
 	int fd = add_file_to_fd_table(file_info);
 	if (fd == -1) {
+		lock_acquire(&file_lock);
 		file_close(file_info);
+		lock_release(&file_lock);
 	}
 	return fd;
 }
@@ -239,8 +248,8 @@ void close (int fd) {
 	}
 	lock_acquire(&file_lock);
 	file_close(fdt[fd]);
-	fdt[fd] = NULL;
 	lock_release(&file_lock);
+	fdt[fd] = NULL;
 }
 
 

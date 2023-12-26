@@ -141,9 +141,11 @@ static void page_fault(struct intr_frame *f) {
       //      not_present ? "not present" : "rights violation",
       //      write ? "writing" : "reading", user ? "user" : "kernel");
 
+#ifdef DEBUG
    if (fault_addr == 0x18) {
       printf("🔥gotcha!\n");
    }
+#endif
 
 #ifdef VM
     /* For project 3 and later. */
@@ -154,7 +156,9 @@ static void page_fault(struct intr_frame *f) {
 
     /* Count page faults. */
     page_fault_cnt++;
+#ifdef DEBUG
     printf("terminating thread %s\n", thread_current()->name);
+#endif
     exit(-1);
     /* If the fault is true fault, show info and exit. */
     printf("Page fault at %p: %s error %s page in %s context.\n", fault_addr,

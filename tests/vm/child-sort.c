@@ -15,7 +15,9 @@ size_t histogram[256];
 int
 main (int argc UNUSED, char *argv[]) 
 {
+#ifdef DEBUG
   printf("(child-sort) main(), argv[1]: %s\n", argv[1]);
+#endif
   int handle;
   unsigned char *p;
   size_t size;
@@ -35,13 +37,21 @@ main (int argc UNUSED, char *argv[])
       while (j-- > 0)
         *p++ = i;
     }
+#ifdef DEBUG
   printf("(child-sort) read(), size: %d\n", size);
+#endif
   seek (handle, 0);
+#ifdef DEBUG
   printf("(child-sort) seek()\n");
+#endif
   write (handle, buf, size);
+#ifdef DEBUG
   printf("(child-sort) write(), buf(%p): %s\n", buf, buf);
+#endif
   close (handle);
+#ifdef DEBUG
   printf("(child-sort) close(). exiting...\n");
+#endif
   
   return 123;
 }
