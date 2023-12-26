@@ -101,6 +101,7 @@ int wait (tid_t tid) {
 }
 
 bool create (const char *file, unsigned initial_size) {
+	printf("create() check address to be called: %p\n", file);
 	check_address(file);
 	return filesys_create(file, initial_size);
 }
@@ -111,6 +112,7 @@ bool remove (const char *file) {
 }
 
 int open (const char *file) {
+	printf("open() check address to be called: %p\n", file);
 	check_address(file);
 	lock_acquire(&file_lock);
 	struct file *file_info = filesys_open(file);
@@ -213,7 +215,9 @@ void seek (int fd, unsigned position) {
 	if (f == NULL) {
 		return;
 	}
+	lock_acquire(&file_lock);
 	file_seek(f, position);
+	lock_release(&file_lock);
 }
 
 unsigned tell (int fd) {
@@ -233,8 +237,10 @@ void close (int fd) {
 	if (fdt[fd] == NULL) {
 		return;
 	}
+	lock_acquire(&file_lock);
 	file_close(fdt[fd]);
 	fdt[fd] = NULL;
+	lock_release(&file_lock);
 }
 
 

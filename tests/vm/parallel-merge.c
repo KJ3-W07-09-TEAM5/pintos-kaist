@@ -42,26 +42,39 @@ sort_chunks (const char *subprocess, int exit_status)
   size_t i;
 
   for (i = 0; i < CHUNK_CNT; i++)
+  // for (i = 0; i < 2; i++)
     {
+      msg ("🔥sort chunk %zu", i);
       char fn[128];
       char cmd[128];
       int handle;
 
-      msg ("sort chunk %zu", i);
 
       /* Write this chunk to a file. */
       snprintf (fn, sizeof fn, "buf%zu", i);
       create (fn, CHUNK_SIZE);
       quiet = true;
+      printf("fn: %s\n", fn);
       CHECK ((handle = open (fn)) > 1, "open \"%s\"", fn);
+      printf("🎯 buf1: %p, ", buf1);
+      printf("🎯 i: %d, ", i);
+      printf("🎯 CHUNK_SIZE: %d\n", CHUNK_SIZE);
+      printf("🎯 accessing address of %p + %d * %d = %p\n", buf1, i, CHUNK_SIZE, buf1 + CHUNK_SIZE * i);
       write (handle, buf1 + CHUNK_SIZE * i, CHUNK_SIZE);
+      // hex_dump(buf1 + CHUNK_SIZE * i, buf1 + CHUNK_SIZE * i, 64, true);
       close (handle);
 
       /* Sort with subprocess. */
+      char *subprocess2[512];
+      snprintf(subprocess2, sizeof subprocess2, "%s%s %s", subprocess, fn, fn);
       snprintf (cmd, sizeof cmd, "%s %s", subprocess, fn);
-      children[i] = fork (subprocess);
-      if (children[i] == 0)
+      // children[i] = fork (subprocess);
+      printf("subprocess2: %s\n", subprocess2);
+      children[i] = fork (subprocess2);
+      if (children[i] == 0) {
+        // printf("going to execute cmd: %s\n", cmd);
         CHECK ((children[i] = exec (cmd)) != -1, "exec \"%s\"", cmd);
+      }
       quiet = false;
     }
 
