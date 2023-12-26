@@ -6,6 +6,8 @@
 #include "include/threads/vaddr.h"
 #include "threads/palloc.h"
 struct list frame_table;
+struct lock kill_lock;
+
 
 enum vm_type {
     /* page not initialized */

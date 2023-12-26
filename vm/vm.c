@@ -19,6 +19,8 @@ void vm_init(void) {
     pagecache_init();
 #endif
     register_inspect_intr();
+    lock_init(&kill_lock);
+
     /* DO NOT MODIFY UPPER LINES. */
     /* TODO: Your code goes here. */
 }
@@ -201,7 +203,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	// if (!page->writable && write) {
 	// 	return vm_handle_wp(page);
 	// }
-    if (write && !(page->writable)) {
+    if (write && !not_present) {
         return false;
     }
 
@@ -319,10 +321,14 @@ void page_free(struct hash_elem *e, void *aux) {
     free(page_destroyed);
 }
 
+void spt_destroy_func(struct hash_elem *e, void *aux) {
+    struct page *pg = hash_entry(e, struct page, hash_elem);
+    vm_dealloc_page(pg);
+}
+
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {
     // /* TODO: Destroy all the supplemental_page_table hold by thread and
+    hash_destroy(&spt->hash_table, spt_destroy_func);
     //  * TODO: writeback all the modified contents to the storage. */
-    hash_clear(&spt->hash_table, page_free);
-    // hash_destroy(&spt->hash_table, page_free);
 }

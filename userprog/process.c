@@ -20,6 +20,7 @@
 #include "threads/vaddr.h"
 #ifdef VM
 #include "vm/vm.h"
+#include "vm/file.h"
 #endif
 
 static void process_cleanup(void);
@@ -205,6 +206,7 @@ int process_exec(void *f_name) {
 
     /* We first kill the current context */
     process_cleanup();
+    supplemental_page_table_init(&thread_current()->spt);
 
     /* project 2: argument passing */
     char *argv[MAX_ARGS];
@@ -269,7 +271,7 @@ void process_exit(void) {
      * TODO: Implement process termination message (see
      * TODO: project2/process_termination.html).
      * TODO: We recommend you to implement process resource cleanup here. */
-    for (int i = 2; i < FDCOUNT_LIMIT; i++) {
+    for (int i = 2; i < curr->fd_idx; i++) {
         close(i);
     }
     palloc_free_multiple(curr->fd_table, FDT_PAGES);
