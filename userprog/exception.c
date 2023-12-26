@@ -2,7 +2,7 @@
 
 #include <inttypes.h>
 #include <stdio.h>
-
+#include "userprog/syscall.h"
 #include "intrinsic.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
