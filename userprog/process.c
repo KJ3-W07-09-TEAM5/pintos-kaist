@@ -14,13 +14,14 @@
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
 #include "threads/mmu.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #ifdef VM
-#include "vm/vm.h"
 #include "vm/file.h"
+#include "vm/vm.h"
 #endif
 
 static void process_cleanup(void);
@@ -632,7 +633,7 @@ bool lazy_load_segment(struct page *page, void *aux) {
     off_t ofs = info->ofs;
     size_t page_read_bytes = info->read_bytes;
     size_t page_zero_bytes = info->zero_bytes;
-    
+
     file_seek(file, ofs);
 
     if (file_read(file, page->frame->kva, page_read_bytes) !=
@@ -641,6 +642,10 @@ bool lazy_load_segment(struct page *page, void *aux) {
         return false;
     }
     memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+
+    // 이걸 추가하는게 맞나...싶네요..
+    file_seek(file, ofs);
+    // 위에요
 
     return true;
 }
@@ -684,7 +689,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
         aux_info->ofs = ofs;
         aux_info->read_bytes = page_read_bytes;
         aux_info->zero_bytes = page_zero_bytes;
-        
+
         // upage는 vm_alloc_page_with_initializer에 직접 전달됨.
         aux = aux_info;
 
@@ -702,10 +707,9 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 }
 
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
-static bool
-setup_stack (struct intr_frame *if_) {
-	bool success = false;
-	void *stack_bottom = (void *) (((uint8_t *) USER_STACK) - PGSIZE);
+static bool setup_stack(struct intr_frame *if_) {
+    bool success = false;
+    void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
     /* TODO: Map the stack on stack_bottom and claim the page immediately.
      * TODO: If success, set the rsp accordingly.
