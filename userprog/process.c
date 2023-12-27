@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -28,6 +28,8 @@ static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
+
+extern struct lock file_lock;
 
 /* General process initializer for initd and other process. */
 static void process_init(void) { struct thread *current = thread_current(); }
@@ -216,8 +218,10 @@ int process_exec(void *f_name) {
     /* project 2: argument passing */
 
     /* And then load the binary */
+    lock_acquire(&file_lock);
     success = load(file_name, &_if);
-
+    lock_release(&file_lock);
+    
     /* If load failed, quit. */
     if (!success) {
         palloc_free_page(file_name);
@@ -290,7 +294,7 @@ static void process_cleanup(void) {
     struct thread *curr = thread_current();
 
 #ifdef VM
-    supplemental_page_table_kill(&curr->spt);
+	supplemental_page_table_kill (&curr->spt); 
 #endif
 
     uint64_t *pml4;
@@ -399,9 +403,9 @@ static bool load(const char *file_name, struct intr_frame *if_) {
     process_activate(thread_current());
 
     /* Open executable file. */
-    lock_acquire(&file_lock);
+    //lock_acquire(&file_lock);
     file = filesys_open(file_name);
-    lock_release(&file_lock);
+    //lock_release(&file_lock);
     if (file == NULL) {
         printf("load: %s: open failed\n", file_name);
         goto done;

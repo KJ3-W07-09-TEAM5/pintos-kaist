@@ -5,6 +5,7 @@
 #include "include/lib/kernel/hash.h"
 #include "include/threads/vaddr.h"
 #include "threads/palloc.h"
+
 struct list frame_table;
 struct lock kill_lock;
 

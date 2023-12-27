@@ -3,8 +3,11 @@
 #include <string.h>
 
 #include "threads/mmu.h"
+
 #include "userprog/process.h"
 #include "vm/vm.h"
+#include "threads/malloc.h"
+
 
 static bool file_backed_swap_in(struct page *page, void *kva);
 static bool file_backed_swap_out(struct page *page);
@@ -139,7 +142,7 @@ void do_munmap(void *addr) {
         // struct frame *find_frame =find_page->frame;
 
         if (find_page == NULL) {
-            return NULL;
+            return;
         }
 
         struct lazy_load_info *container =

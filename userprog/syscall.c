@@ -101,7 +101,10 @@ int wait(tid_t tid) { return process_wait(tid); }
 
 bool create(const char *file, unsigned initial_size) {
     check_address(file);
-    return filesys_create(file, initial_size);
+    lock_acquire(&file_lock);
+    bool ret = filesys_create(file, initial_size);
+    lock_release(&file_lock);
+    return ret;
 }
 
 bool remove(const char *file) {
@@ -113,7 +116,7 @@ int open(const char *file) {
     check_address(file);
     lock_acquire(&file_lock);
     struct file *file_info = filesys_open(file);
-    lock_release(&file_lock);
+    //lock_release(&file_lock);
     if (file_info == NULL) {
         return -1;
     }
@@ -121,6 +124,7 @@ int open(const char *file) {
     if (fd == -1) {
         file_close(file_info);
     }
+    lock_release(&file_lock);
     return fd;
 }
 
