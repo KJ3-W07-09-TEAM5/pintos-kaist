@@ -29,6 +29,8 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
+extern struct lock file_lock;
+
 /* General process initializer for initd and other process. */
 static void process_init(void) { struct thread *current = thread_current(); }
 
@@ -216,7 +218,9 @@ int process_exec(void *f_name) {
     /* project 2: argument passing */
 
     /* And then load the binary */
+    lock_acquire(&file_lock);
     success = load(file_name, &_if);
+    lock_release(&file_lock);
 
     /* If load failed, quit. */
     if (!success) {
@@ -384,7 +388,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
  * Stores the executable's entry point into *RIP
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
-extern struct lock file_lock;
+//extern struct lock file_lock;
 static bool load(const char *file_name, struct intr_frame *if_) {
     struct thread *t = thread_current();
     struct ELF ehdr;
@@ -399,9 +403,9 @@ static bool load(const char *file_name, struct intr_frame *if_) {
     process_activate(thread_current());
 
     /* Open executable file. */
-    lock_acquire(&file_lock);
+    //lock_acquire(&file_lock);
     file = filesys_open(file_name);
-    lock_release(&file_lock);
+    //lock_release(&file_lock);
     if (file == NULL) {
         printf("load: %s: open failed\n", file_name);
         goto done;
