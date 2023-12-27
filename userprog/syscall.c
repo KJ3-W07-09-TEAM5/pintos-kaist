@@ -101,7 +101,12 @@ int wait(tid_t tid) { return process_wait(tid); }
 
 bool create(const char *file, unsigned initial_size) {
     check_address(file);
-    return filesys_create(file, initial_size);
+
+    lock_acquire(&file_lock);
+    bool success = filesys_create(file, initial_size);
+    lock_release(&file_lock);
+
+    return success;
 }
 
 bool remove(const char *file) {
